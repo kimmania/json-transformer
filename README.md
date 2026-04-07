@@ -67,9 +67,88 @@ export default {
 { if: { field: "Status", op: "gte", value: 5 }, then: "pass", else: "fail" }
 ```
 
-### Composite conditions: `and` / `or` / `not`
+### Dot-paths (nested source and target)
 
-Conditions can be composed together for complex logic. Nest them as deeply as needed.
+Source fields support dot-notation to traverse nested objects and arrays:
+
+```javascript
+fields: {
+  city:     { from: "address.city" },
+  zip:      { from: "address.zip", format: "uppercase" },
+  tag:      { from: "tags.0.name" },  // array index access
+}
+```
+
+Target keys with dots automatically build nested output:
+
+```javascript
+fields: {
+  "contact.email": { from: "EmailAddr", format: "lowercase" },
+  "contact.phone": { from: "WorkPhone" },
+}
+// → { contact: { email: "...", phone: "..." } }
+```
+
+### Nested sub-mappings (`fields` blocks)
+
+Instead of individual dot-path keys, you can nest `fields` blocks to define a sub-mapping. This is especially useful when multiple transforms and conditions apply at the same level:
+
+```javascript
+fields: {
+  full_name: { from: "FullName" },
+  contact: {
+    fields: {
+      email:  { from: "EmailAddr", format: "lowercase" },
+      phone:  { from: "WorkPhone" },
+      address: {
+        fields: {
+          city:  { from: "addr.city", format: "uppercase" },
+          state: { from: "addr.state" },
+        },
+      },
+    },
+  },
+}
+```
+
+### Array iteration (`forEach`)
+
+Use `forEach` to transform an array of nested objects:
+
+```javascript
+fields: {
+  items: {
+    forEach: "LineItems",          // source array field name
+    fields: {
+      product:    { from: "ProductSKU" },
+      quantity:   { from: "Qty", format: "number" },
+      line_total: {
+        from: ["Price", "Qty"],
+        compute: (price, qty) => parseFloat(price) * qty,
+      },
+    },
+  },
+}
+```
+
+When the source array is `null` or missing, the output is `[]`.
+
+### Flat mapping (no nested objects)
+
+If you prefer keeping the output structure flat, use dot-path target keys to collapse nested data:
+
+```javascript
+// source: { address: { city: "NYC", state: "NY" } }
+fields: {
+  "address.city":  { from: "address.city" },
+  "address.state": { from: "address.state" },
+}
+// → { "address.city": "NYC", "address.state": "NY" }
+```
+
+### Composite conditions (`and` / `or` / `not`)
+
+Conditions support dot-paths and can be composed together. Nest them as deeply as needed.
 
 **All must match (`and`)**
 
@@ -148,28 +227,54 @@ function transform(source: Array<Object>, mapping: Mapping): Array<Object>
 function transformOne(sourceRow: Object, mapping: Mapping): Object
 ```
 
+## CLI
+
+A zero-dependency CLI tool ships with the engine. Run transforms directly from the command line:
+
+```bash
+# Transform and print to stdout (pipe-friendly)
+node cli.js transform -d data.json -m mapping.js
+
+# Transform with JSON mapping (no compute functions needed)
+node cli.js transform -d data.json -m mapping.json
+
+# Write output to a file
+node cli.js transform -d data.json -m mapping.js -o output.json
+
+# Compact (minified) output
+node cli.js transform -d data.json -m mapping.js --compact
+```
+
+Mapping formats:
+- **`.js`** — full mapping with `compute()` functions (ES modules, `export default`)
+- **`.json`** — pure declarative mapping, serializable and shareable (no `compute()`)
+
 ## File structure
 
 ```
 json-xslt/
-├── transform.js            # Core engine (import this)
-├── mapping-crm-example.js  # Example: CRM migration
-├── mapping-employee.js     # Example: employee import
-├── demo.js                 # Runnable demo: node demo.js
+├── transform.js               # Core engine (import this)
+├── cli.js                     # CLI tool
+├── mapping-crm-example.js     # Example: CRM migration (JS)
+├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
+├── mapping-employee.js        # Example: composite conditions
+├── mapping-nested.js          # Example: nested objects & forEach
+├── demo.js                    # In-Node demo
+├── demo-composite.js          # Composite condition demo
+├── test-data.json             # Sample flat data
+├── test-nested.json           # Sample nested data
 └── README.md
 ```
 
-## Limitations (v1)
+## Limitations
 
-- Source JSON must be an **array of flat objects** (no nested paths)
 - Value maps are **exact-match only** (no regex keys)
-- No `for-each` aggregation or cross-row computations
-- `compute` functions must be plain JavaScript (not JSON-serializable)
+- `compute` functions must be plain JavaScript (not JSON-serializable — use `.js` mappings)
+- Cross-row computations not supported (each row transforms independently)
 
 ## Future ideas
 
-- Nested field paths (`"address.city"`)
 - Multiple condition chains (`if/else if/else if/else`)
-- CLI mode: `node transform.js --mapping map.js --input in.json --output out.json`
-- JSON-based mapping format (separate from JS)
+- Aggregation across forEach items (`sum`, `count`, `min`, `max`)
+- `default` value fallback per field
 - TypeScript declarations

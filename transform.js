@@ -6,12 +6,49 @@
  *   import mapping from './my-mapping.js';
  *   const result = transform(sourceData, mapping);
  *
- * The mapping is a plain JavaScript object (or module export)
- * that declaratively describes field-by-field transformations —
- * much like an XSLT stylesheet, but for JSON.
+ * Supports nested source paths ("address.city") and nested target blocks.
  */
 
-// ── Date helpers ──────────────────────────────────────────────────
+// ── Path helpers ─────────────────────────────────────────────────────
+
+/**
+ * Resolve a dot-path on an object.
+ *   resolvePath({ a: { b: 42 } }, "a.b")  →  42
+ *   resolvePath({ a: { b: [10,20] } }, "a.b.1")  →  20
+ *   resolvePath({ x: null }, "x.y")  →  undefined
+ */
+function resolvePath(obj, pathStr) {
+  if (obj === null || obj === undefined) return undefined;
+  const parts = pathStr.split(".");
+  let cursor = obj;
+  for (const part of parts) {
+    if (cursor === null || cursor === undefined) return undefined;
+    // Support numeric index into arrays
+    cursor = cursor[part];
+  }
+  return cursor;
+}
+
+/**
+ * Set a value at a dot-path, creating intermediate objects as needed.
+ *   setPath({}, "a.b.c", 42)  →  { a: { b: { c: 42 } } }
+ */
+function setPath(obj, pathStr, value) {
+  const parts = pathStr.split(".");
+  let cursor = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    const next = parts[i + 1];
+    // If the next key looks like an array index, create an array
+    if (!cursor[key] || typeof cursor[key] !== "object") {
+      cursor[key] = /^\d+$/.test(next) ? [] : {};
+    }
+    cursor = cursor[key];
+  }
+  cursor[parts[parts.length - 1]] = value;
+}
+
+// ── Date helpers ─────────────────────────────────────────────────────
 
 const MONTHS = [
   "January","February","March","April","May","June",
@@ -49,7 +86,6 @@ function formatDate(dateValue, outputFormat) {
     "AMPM": d.getHours() >= 12 ? "PM" : "AM",
   };
 
-  // Single regex pass to avoid substring overlap (MM matching before MMMM, etc.)
   const sortedTokens = Object.keys(tokens)
     .filter(k => k.length > 0)
     .sort((a, b) => b.length - a.length);
@@ -57,7 +93,7 @@ function formatDate(dateValue, outputFormat) {
   return outputFormat.replace(pattern, (match) => String(tokens[match]));
 }
 
-// ── Condition evaluation ──────────────────────────────────────────
+// ── Condition evaluation ─────────────────────────────────────────────
 
 function evaluateCondition(sourceRow, condition) {
   // ── Composable logic ────────────────────────────────────────────
@@ -73,7 +109,11 @@ function evaluateCondition(sourceRow, condition) {
 
   // ── Leaf condition ──────────────────────────────────────────────
   const { field, op, value } = condition;
-  const actual = sourceRow[field];
+
+  // Support dot-path in condition field
+  const actual = field.includes(".")
+    ? resolvePath(sourceRow, field)
+    : sourceRow[field];
 
   switch (op) {
     case "eq":      return actual == value;
@@ -94,17 +134,30 @@ function evaluateCondition(sourceRow, condition) {
   }
 }
 
-// ── Core transform ────────────────────────────────────────────────
+// ── Core transform ───────────────────────────────────────────────────
 
-function transformField(sourceRow, targetKey, fieldDef) {
-  // 1. Literal/static value
+function transformField(sourceRow, fieldDef) {
+  // 0. Nested sub-mapping (recursive)
+  if ("fields" in fieldDef && typeof fieldDef.fields === "object") {
+    // Check if this is also a forEach
+    if (fieldDef.forEach !== undefined) {
+      return transformForEach(sourceRow, fieldDef);
+    }
+    return transformOne(sourceRow, { fields: fieldDef.fields });
+  }
+
+  // 1. forEach — array iteration
+  if (fieldDef.forEach !== undefined) {
+    return transformForEach(sourceRow, fieldDef);
+  }
+
+  // 2. Literal / static value
   if ("value" in fieldDef) return fieldDef.value;
 
-  // 2. Conditional (if / then / else)
+  // 3. Conditional (if / then / else)
   if (fieldDef.if) {
     const passes = evaluateCondition(sourceRow, fieldDef.if);
     const result = passes ? fieldDef.then : fieldDef.else;
-    // Support post-condition mapping
     if (passes && typeof fieldDef.thenMap === "object" && result !== undefined && result !== null) {
       return fieldDef.thenMap[result] ?? result;
     }
@@ -114,20 +167,20 @@ function transformField(sourceRow, targetKey, fieldDef) {
     return result;
   }
 
-  // 3. Custom compute function
+  // 4. Custom compute function
   if (typeof fieldDef.compute === "function") {
-    const fromFields = Array.isArray(fieldDef.from) ? fieldDef.from : [fieldDef.from];
-    const values = fromFields.map(f => sourceRow[f]);
+    const fromPaths = Array.isArray(fieldDef.from) ? fieldDef.from : [fieldDef.from];
+    const values = fromPaths.map(f => resolvePath(sourceRow, f));
     return fieldDef.compute(...values, sourceRow);
   }
 
-  // 4. Field mapping (rename / map / format)
-  const sourceField = fieldDef.from;
-  if (!sourceField) return undefined;
+  // 5. Field mapping (rename / map / format)
+  const sourcePath = fieldDef.from;
+  if (!sourcePath) return undefined;
 
-  const rawValue = Array.isArray(sourceField)
-    ? sourceField.map(f => sourceRow[f])
-    : sourceRow[sourceField];
+  const rawValue = Array.isArray(sourcePath)
+    ? sourcePath.map(p => resolvePath(sourceRow, p))
+    : resolvePath(sourceRow, sourcePath);
 
   let result = rawValue;
 
@@ -136,8 +189,11 @@ function transformField(sourceRow, targetKey, fieldDef) {
     result = fieldDef.map[result] ?? result;
   }
 
-  // Apply format
+  // Apply format (null-safe)
   if (fieldDef.format) {
+    if (result === undefined || result === null) {
+      return null;  // propagate null through formats
+    }
     switch (fieldDef.format) {
       case "date":
         result = formatDate(result, fieldDef.outputFormat || "YYYY-MM-DD");
@@ -172,15 +228,38 @@ function transformField(sourceRow, targetKey, fieldDef) {
 }
 
 /**
+ * Handle forEach: iterate over a source array, transform each item.
+ *
+ * {
+ *   forEach: "LineItems",
+ *   fields: {
+ *     product: { from: "ProductSKU" },
+ *     qty: { from: "Quantity", format: "number" },
+ *   }
+ * }
+ */
+function transformForEach(sourceRow, fieldDef) {
+  const sourceArray = resolvePath(sourceRow, fieldDef.forEach);
+  if (!Array.isArray(sourceArray)) return [];
+
+  const subMapping = { fields: fieldDef.fields };
+  return sourceArray.map(item => transformOne(item, subMapping));
+}
+
+/**
  * Transform a single source object.
- * @param {Object} sourceRow  — input JSON object
- * @param {Object} mapping    — { id?: string, fields: { <target>: fieldDef, ... } }
- * @returns {Object}          — transformed object
+ * Supports dot-path target keys:
+ *   "contact.email" → { contact: { email: ... } }
  */
 export function transformOne(sourceRow, mapping) {
   const result = {};
   for (const [targetKey, fieldDef] of Object.entries(mapping.fields)) {
-    result[targetKey] = transformField(sourceRow, targetKey, fieldDef);
+    const value = transformField(sourceRow, fieldDef);
+    if (targetKey.includes(".")) {
+      setPath(result, targetKey, value);
+    } else {
+      result[targetKey] = value;
+    }
   }
   return result;
 }

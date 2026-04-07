@@ -1,0 +1,46 @@
+[
+  {
+    "order_id": "ORD-1001",
+    "customer": {
+      "FullName": "Alice Johnson",
+      "Email": "ALICE@example.com",
+      "tier": "gold"
+    },
+    "LineItems": [
+      { "ProductSKU": "WIDGET-A", "Qty": 2, "Price": "29.99" },
+      { "SKU": "GADGET-X", "Qty": 1, "Price": "149.00" },
+      { "SKU": "CABLE-B", "Qty": 3, "Price": "12.50" }
+    ],
+    "ship_city": "nyc",
+    "ship_state": "NY",
+    "ship_zip": "10001",
+    "date_shipped": "2025-06-15T10:00:00Z",
+    "grand_total": "234.48"
+  },
+  {
+    "order_id": "ORD-1002",
+    "customer": {
+      "FullName": "Bob Chen",
+      "Email": "BOB@demo.org",
+      "tier": "silver"
+    },
+    "LineItems": [
+      { "SKU": "PART-Y", "Qty": 10, "Price": "4.99" }
+    ],
+    "ship_city": "la",
+    "ship_state": "CA",
+    "ship_zip": "90001",
+    "date_shipped": "2025-07-01T08:30:00Z",
+    "grand_total": "49.90"
+  },
+  {
+    "order_id": "ORD-1003",
+    "customer": null,
+    "LineItems": [],
+    "ship_city": "chi",
+    "ship_state": "IL",
+    "ship_zip": "60601",
+    "date_shipped": null,
+    "grand_total": "0"
+  }
+]
