@@ -1,6 +1,7 @@
 /**
  * Data cleaning mapping — demonstrates passthrough, template, coalesce,
- * and the extended format options: titlecase, round, split, and join.
+ * and the extended format options: titlecase, round, split, join,
+ * truncate, replace, camelcase, snakecase, and kebabcase.
  *
  * passthrough copies all source fields to the output first; the fields
  * block then overrides specific keys with cleaned/transformed values.
@@ -62,5 +63,26 @@ export default {
     // ── round: trim floating-point noise ────────────────────────────
     price: { from: "price", format: "round", precision: 2 },
     score: { from: "score", format: "round", precision: 1 },
+
+    // ── truncate: shorten long text with a suffix ────────────────────
+    short_desc: {
+      from: "description",
+      format: "truncate",
+      length: 40,
+      suffix: "…",
+    },
+
+    // ── replace: strip non-digit characters from a phone number ─────
+    phone_digits: {
+      coalesce: ["mobile", "work_phone", "home_phone"],
+      format: "replace",
+      find: "\\D",
+      replaceWith: "",
+    },
+
+    // ── casing formats: derive identifier variants from a name ───────
+    api_key:   { from: "api_key_name",   format: "snakecase" },
+    css_class: { from: "component_name", format: "kebabcase" },
+    js_var:    { from: "component_name", format: "camelcase" },
   },
 };

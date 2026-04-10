@@ -171,6 +171,11 @@ export default {
 | `round` | Round to N decimal places | `precision` (default `0`) |
 | `split` | Split a string into an array | `separator` (default `","`) |
 | `join` | Join an array into a string | `separator` (default `", "`) |
+| `truncate` | Trim a string to a max length, appending a suffix if cut | `length` (default `50`), `suffix` (default `"..."`) |
+| `replace` | Regex or literal substitution | `find` (pattern), `replaceWith` (default `""`), `flags` (default `"g"`) |
+| `camelcase` | Convert to camelCase | — |
+| `snakecase` | Convert to snake_case | — |
+| `kebabcase` | Convert to kebab-case | — |
 
 #### `compute` signature
 
@@ -690,7 +695,7 @@ json-xslt/
 ├── mapping-nested.js          # Example: nested objects & forEach
 ├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
 ├── mapping-validated.js       # Example: schema validation (all rule types)
-├── mapping-data-cleaning.js   # Example: passthrough, template, coalesce, round, split, join
+├── mapping-data-cleaning.js   # Example: passthrough, template, coalesce, round, split, join, truncate, replace, casing
 ├── mapping-timesheet.js       # Example: dictionary lookups (inline + $file)
 ├── demo.js                    # In-Node demo
 ├── demo-composite.js          # Composite condition demo
@@ -718,11 +723,6 @@ json-xslt/
 - `distinct` — deduplicate `forEach` output by a field (e.g. unique SKUs only)
 - `groupBy` — reshape a flat array into an object keyed by a field value (e.g. group line items by status)
 - `flatten` — collapse a nested array one level before iterating
-
-**Field-level**
-- `truncate` — trim a string to a max length with an optional suffix (`"..."`)
-- `replace` — regex or literal string substitution without needing a full `compute`
-- `camelCase` / `snake_case` / `kebab-case` — identifier casing formats to complement `titlecase`
 
 **Mapping-level**
 - `include` allowlist on `passthrough` — currently only `exclude` is supported

@@ -175,6 +175,19 @@ function formatDate(dateValue, outputFormat) {
 
 // ── Format helper ────────────────────────────────────────────────────
 
+/**
+ * Split a string into lowercase words, handling camelCase, PascalCase,
+ * snake_case, kebab-case, SCREAMING_SNAKE, and space-separated input.
+ */
+function splitWords(str) {
+  return String(str)
+    .replace(/([a-z])([A-Z])/g, "$1 $2")       // camelCase → camel Case
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2") // SQLQuery  → SQL Query
+    .split(/[\s_\-]+/)
+    .filter(Boolean)
+    .map(w => w.toLowerCase());
+}
+
 function applyFormat(value, fieldDef) {
   if (!fieldDef.format) return value;
   if (value === undefined || value === null) return null;
@@ -188,6 +201,30 @@ function applyFormat(value, fieldDef) {
     case "boolean":   return Boolean(value);
     case "negate":    return !value;
     case "titlecase": return String(value).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    case "camelcase": {
+      const words = splitWords(value);
+      return words.map((w, i) => i === 0 ? w : w[0].toUpperCase() + w.slice(1)).join("");
+    }
+    case "snakecase":  return splitWords(value).join("_");
+    case "kebabcase":  return splitWords(value).join("-");
+    case "truncate": {
+      const max    = fieldDef.length ?? 50;
+      const suffix = fieldDef.suffix ?? "...";
+      const str    = String(value);
+      if (str.length <= max) return str;
+      return str.slice(0, Math.max(0, max - suffix.length)) + suffix;
+    }
+    case "replace": {
+      const str = String(value);
+      try {
+        return str.replace(
+          new RegExp(fieldDef.find ?? "", fieldDef.flags ?? "g"),
+          fieldDef.replaceWith ?? ""
+        );
+      } catch {
+        return str.split(fieldDef.find ?? "").join(fieldDef.replaceWith ?? "");
+      }
+    }
     case "round": {
       const factor = Math.pow(10, fieldDef.precision ?? 0);
       return Math.round(Number(value) * factor) / factor;
