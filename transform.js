@@ -479,11 +479,23 @@ export function transformOne(sourceRow, mapping, dictionaries = {}) {
 
   // Passthrough: copy source fields as a baseline before applying field definitions
   if (mapping.passthrough) {
-    const exclude = typeof mapping.passthrough === "object" && Array.isArray(mapping.passthrough.exclude)
-      ? new Set(mapping.passthrough.exclude)
-      : new Set();
-    for (const [key, val] of Object.entries(sourceRow)) {
-      if (!exclude.has(key)) result[key] = val;
+    const pt = mapping.passthrough;
+    if (typeof pt === "object" && Array.isArray(pt.include)) {
+      // Allowlist — copy only the listed fields
+      const includeSet = new Set(pt.include);
+      for (const key of includeSet) {
+        if (Object.prototype.hasOwnProperty.call(sourceRow, key)) {
+          result[key] = sourceRow[key];
+        }
+      }
+    } else {
+      // Copy all fields, minus any exclusions
+      const exclude = typeof pt === "object" && Array.isArray(pt.exclude)
+        ? new Set(pt.exclude)
+        : new Set();
+      for (const [key, val] of Object.entries(sourceRow)) {
+        if (!exclude.has(key)) result[key] = val;
+      }
     }
   }
 

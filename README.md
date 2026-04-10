@@ -127,19 +127,39 @@ When using the CLI, `validate()` runs automatically if the mapping has a `schema
 
 Set `passthrough: true` to copy all source fields to the output before applying `fields`. This is useful when you only want to transform or add a few fields without listing every field you want to keep.
 
-Fields defined in `fields` always override passthrough values. To exclude specific source fields, use `passthrough: { exclude: [...] }`:
+Fields defined in `fields` always override passthrough values.
+
+#### Exclude specific fields (`exclude`)
+
+Copy everything except a blocklist of fields:
 
 ```javascript
 export default {
   id: "enrich-product",
-  passthrough: { exclude: ["internal_id", "raw_cost"] },  // copy all except these
+  passthrough: { exclude: ["internal_id", "raw_cost"] },
   fields: {
-    // These override the passthrough values with cleaned versions
     display_name: { template: "{brand} {model}", format: "titlecase" },
     price:        { from: "price", format: "round", precision: 2 },
   },
 };
 ```
+
+#### Copy only specific fields (`include`)
+
+Copy only the listed source fields and nothing else:
+
+```javascript
+export default {
+  id: "public-profile",
+  passthrough: { include: ["first_name", "last_name", "email"] },
+  fields: {
+    // Override or add fields on top of the allowlisted baseline
+    email: { from: "email", format: "lowercase" },
+  },
+};
+```
+
+`include` and `exclude` are mutually exclusive — when `include` is set it takes precedence.
 
 ### Field definition options
 
@@ -725,7 +745,6 @@ json-xslt/
 - `flatten` — collapse a nested array one level before iterating
 
 **Mapping-level**
-- `include` allowlist on `passthrough` — currently only `exclude` is supported
 - Mapping composition — extend another mapping definition, similar to how CSS classes compose
 - Cross-row computations — running totals, percentage of dataset total, ranking rows by a field, previous/next row references
 
