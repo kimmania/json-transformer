@@ -1,0 +1,36 @@
+[
+  {
+    "first_name":    "alice",
+    "last_name":     "SMITH",
+    "mobile":        "555-0100",
+    "work_phone":    null,
+    "home_phone":    "555-0199",
+    "street":        "123 main st",
+    "city":          "springfield",
+    "state":         "il",
+    "zip":           "62701",
+    "tags":          "javascript,nodejs,json",
+    "keywords":      ["search", "filter", "sort"],
+    "price":         12.3456,
+    "score":         87.666,
+    "source_system": "CRM",
+    "internal_id":   "INT-001"
+  },
+  {
+    "first_name":    "BOB",
+    "last_name":     "jones",
+    "mobile":        null,
+    "work_phone":    null,
+    "home_phone":    null,
+    "street":        "456 oak ave",
+    "city":          "SHELBYVILLE",
+    "state":         "IL",
+    "zip":           "62565",
+    "tags":          "python,data,etl",
+    "keywords":      ["import", "export"],
+    "price":         99.9999,
+    "score":         42.123,
+    "source_system": "ERP",
+    "internal_id":   "INT-002"
+  }
+]

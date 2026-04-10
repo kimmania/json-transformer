@@ -14,8 +14,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { resolve } from "node:path";
 
 // ── Path helpers ─────────────────────────────────────────────────────
 
@@ -174,6 +173,33 @@ function formatDate(dateValue, outputFormat) {
   return outputFormat.replace(pattern, (match) => String(tokens[match]));
 }
 
+// ── Format helper ────────────────────────────────────────────────────
+
+function applyFormat(value, fieldDef) {
+  if (!fieldDef.format) return value;
+  if (value === undefined || value === null) return null;
+  switch (fieldDef.format) {
+    case "date":      return formatDate(value, fieldDef.outputFormat || "YYYY-MM-DD");
+    case "lowercase": return String(value).toLowerCase();
+    case "uppercase": return String(value).toUpperCase();
+    case "trim":      return String(value).trim();
+    case "number":    return Number(value);
+    case "string":    return String(value);
+    case "boolean":   return Boolean(value);
+    case "negate":    return !value;
+    case "titlecase": return String(value).replace(/\b\w/g, c => c.toUpperCase());
+    case "round": {
+      const factor = Math.pow(10, fieldDef.precision ?? 0);
+      return Math.round(Number(value) * factor) / factor;
+    }
+    case "split":
+      return String(value).split(fieldDef.separator ?? ",");
+    case "join":
+      return Array.isArray(value) ? value.join(fieldDef.separator ?? ", ") : String(value);
+    default:          return value;
+  }
+}
+
 // ── Condition evaluation ─────────────────────────────────────────────
 
 function evaluateCondition(sourceRow, condition) {
@@ -222,35 +248,63 @@ function transformField(sourceRow, fieldDef, dictionaries = {}) {
     return transformOne(sourceRow, { fields: fieldDef.fields }, dictionaries);
   }
 
-  // 1. forEach — array iteration
+  // 1. forEach — array iteration or aggregation
   if (fieldDef.forEach !== undefined) {
+    if (fieldDef.aggregate) {
+      return transformAggregate(sourceRow, fieldDef, dictionaries);
+    }
     return transformForEach(sourceRow, fieldDef, dictionaries);
   }
 
   // 2. Literal / static value
   if ("value" in fieldDef) return fieldDef.value;
 
-  // 3. Conditional (if / then / else)
+  // 3. Template string interpolation — {dot.path} tokens resolved from sourceRow
+  if (fieldDef.template !== undefined) {
+    const result = String(fieldDef.template).replace(/\{([^}]+)\}/g, (_, path) => {
+      const val = resolvePath(sourceRow, path);
+      return val === undefined || val === null ? "" : String(val);
+    });
+    return applyFormat(result, fieldDef);
+  }
+
+  // 4. Coalesce — first non-null value from a list of source fields
+  if (Array.isArray(fieldDef.coalesce)) {
+    const found = fieldDef.coalesce
+      .map(path => resolvePath(sourceRow, path))
+      .find(v => v !== undefined && v !== null);
+    const result = found !== undefined ? found : (fieldDef.default ?? null);
+    return applyFormat(result, fieldDef);
+  }
+
+  // 5. Conditional (if / then / else)
   if (fieldDef.if) {
     const passes = evaluateCondition(sourceRow, fieldDef.if);
-    const result = passes ? fieldDef.then : fieldDef.else;
-    if (passes && typeof fieldDef.thenMap === "object" && result !== undefined && result !== null) {
-      return fieldDef.thenMap[result] ?? result;
+    const branch = passes ? fieldDef.then : fieldDef.else;
+
+    // If the branch is a field definition object, resolve it recursively
+    let result;
+    if (branch !== null && branch !== undefined && typeof branch === "object" && !Array.isArray(branch)) {
+      result = transformField(sourceRow, branch, dictionaries);
+    } else {
+      result = branch;
     }
-    if (!passes && typeof fieldDef.elseMap === "object" && result !== undefined && result !== null) {
-      return fieldDef.elseMap[result] ?? result;
+
+    const map = passes ? fieldDef.thenMap : fieldDef.elseMap;
+    if (typeof map === "object" && result !== undefined && result !== null) {
+      return map[result] ?? result;
     }
     return result;
   }
 
-  // 4. Custom compute function
+  // 6. Custom compute function
   if (typeof fieldDef.compute === "function") {
     const fromPaths = Array.isArray(fieldDef.from) ? fieldDef.from : [fieldDef.from];
     const values = fromPaths.map(f => resolvePath(sourceRow, f));
     return fieldDef.compute(...values, sourceRow, dictionaries);
   }
 
-  // 5. Field mapping (rename / map / format)
+  // 7. Field mapping (rename / map / format)
   const sourcePath = fieldDef.from;
   if (!sourcePath) return undefined;
 
@@ -263,7 +317,7 @@ function transformField(sourceRow, fieldDef, dictionaries = {}) {
 
   let result = lookupKey;
 
-  // 5a. Dictionary lookup
+  // 7a. Dictionary lookup
   if (fieldDef.lookup) {
     const dict = dictionaries[fieldDef.lookup];
     if (dict !== undefined) {
@@ -280,60 +334,92 @@ function transformField(sourceRow, fieldDef, dictionaries = {}) {
     }
   }
 
-  // 5b. Default value fallback
+  // 7b. Default value fallback
   if (result === undefined || result === null) {
     result = fieldDef.default;
   }
 
-  // 5c. Apply value map
+  // 7c. Apply value map
   if (typeof fieldDef.map === "object" && result !== undefined && result !== null) {
     result = fieldDef.map[result] ?? result;
   }
 
-  // 5d. Apply format (null-safe)
-  if (fieldDef.format) {
-    if (result === undefined || result === null) {
-      return null;
-    }
-    switch (fieldDef.format) {
-      case "date":
-        result = formatDate(result, fieldDef.outputFormat || "YYYY-MM-DD");
-        break;
-      case "lowercase":
-        result = String(result).toLowerCase();
-        break;
-      case "uppercase":
-        result = String(result).toUpperCase();
-        break;
-      case "trim":
-        result = String(result).trim();
-        break;
-      case "number":
-        result = Number(result);
-        break;
-      case "string":
-        result = String(result);
-        break;
-      case "boolean":
-        result = Boolean(result);
-        break;
-      case "negate":
-        result = !result;
-        break;
-      default:
-        break;
-    }
-  }
-
-  return result;
+  // 7d. Apply format
+  return applyFormat(result, fieldDef);
 }
 
 function transformForEach(sourceRow, fieldDef, dictionaries) {
-  const sourceArray = resolvePath(sourceRow, fieldDef.forEach);
+  let sourceArray = resolvePath(sourceRow, fieldDef.forEach);
   if (!Array.isArray(sourceArray)) return [];
+
+  if (fieldDef.filter) {
+    sourceArray = sourceArray.filter(item => evaluateCondition(item, fieldDef.filter));
+  }
+
+  if (fieldDef.sortBy) {
+    const sortField = typeof fieldDef.sortBy === "string" ? fieldDef.sortBy : fieldDef.sortBy.field;
+    const desc = typeof fieldDef.sortBy === "object" && fieldDef.sortBy.order === "desc";
+    sourceArray = [...sourceArray].sort((a, b) => {
+      const va = resolvePath(a, sortField);
+      const vb = resolvePath(b, sortField);
+      if (va === vb) return 0;
+      const cmp = va < vb ? -1 : 1;
+      return desc ? -cmp : cmp;
+    });
+  }
 
   const subMapping = { fields: fieldDef.fields };
   return sourceArray.map(item => transformOne(item, subMapping, dictionaries));
+}
+
+function transformAggregate(sourceRow, fieldDef, dictionaries) {
+  let sourceArray = resolvePath(sourceRow, fieldDef.forEach);
+
+  if (!Array.isArray(sourceArray) || sourceArray.length === 0) {
+    return fieldDef.aggregate === "count" ? 0 : (fieldDef.default ?? null);
+  }
+
+  if (fieldDef.filter) {
+    sourceArray = sourceArray.filter(item => evaluateCondition(item, fieldDef.filter));
+  }
+
+  if (sourceArray.length === 0) {
+    return fieldDef.aggregate === "count" ? 0 : (fieldDef.default ?? null);
+  }
+
+  if (fieldDef.aggregate === "count") {
+    return sourceArray.length;
+  }
+
+  // Compute a value for each item — via compute function or raw field path
+  let perItemValues;
+  if (typeof fieldDef.compute === "function") {
+    const fromPaths = fieldDef.from
+      ? (Array.isArray(fieldDef.from) ? fieldDef.from : [fieldDef.from])
+      : [];
+    perItemValues = sourceArray.map(item => {
+      const args = fromPaths.map(p => resolvePath(item, p));
+      return fieldDef.compute(...args, item, dictionaries);
+    });
+  } else if (fieldDef.from) {
+    perItemValues = sourceArray.map(item => resolvePath(item, fieldDef.from));
+  } else {
+    return fieldDef.default ?? null;
+  }
+
+  const numbers = perItemValues.map(Number).filter(n => !isNaN(n));
+  if (numbers.length === 0) return fieldDef.default ?? null;
+
+  let result;
+  switch (fieldDef.aggregate) {
+    case "sum": result = numbers.reduce((a, b) => a + b, 0); break;
+    case "min": result = Math.min(...numbers); break;
+    case "max": result = Math.max(...numbers); break;
+    case "avg": result = numbers.reduce((a, b) => a + b, 0) / numbers.length; break;
+    default: return undefined;
+  }
+
+  return applyFormat(result, fieldDef);
 }
 
 /**
@@ -342,8 +428,24 @@ function transformForEach(sourceRow, fieldDef, dictionaries) {
 export function transformOne(sourceRow, mapping, dictionaries = {}) {
   const dicts = mapping.dictionaries || dictionaries;
   const result = {};
+
+  // Passthrough: copy source fields as a baseline before applying field definitions
+  if (mapping.passthrough) {
+    const exclude = typeof mapping.passthrough === "object" && Array.isArray(mapping.passthrough.exclude)
+      ? new Set(mapping.passthrough.exclude)
+      : new Set();
+    for (const [key, val] of Object.entries(sourceRow)) {
+      if (!exclude.has(key)) result[key] = val;
+    }
+  }
+
   for (const [targetKey, fieldDef] of Object.entries(mapping.fields)) {
-    const value = transformField(sourceRow, fieldDef, dicts);
+    let value;
+    try {
+      value = transformField(sourceRow, fieldDef, dicts);
+    } catch (e) {
+      throw new Error(`field "${targetKey}": ${e.message}`, { cause: e });
+    }
     if (targetKey.includes(".")) {
       setPath(result, targetKey, value);
     } else {
@@ -357,5 +459,11 @@ export function transformOne(sourceRow, mapping, dictionaries = {}) {
  * Transform an array of source objects.
  */
 export function transform(source, mapping, dictionaries = {}) {
-  return source.map(row => transformOne(row, mapping, dictionaries));
+  return source.map((row, i) => {
+    try {
+      return transformOne(row, mapping, dictionaries);
+    } catch (e) {
+      throw new Error(`row ${i}: ${e.message}`, { cause: e });
+    }
+  });
 }

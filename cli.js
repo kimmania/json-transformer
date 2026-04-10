@@ -103,8 +103,7 @@ async function loadMapping(mappingPath) {
   }
 
   if (mappingPath.endsWith(".js")) {
-    const fileUrl = `file://${resolved.replace(/\\/g, "/")}`;
-    const mod = await import(fileUrl);
+    const mod = await import(pathToFileURL(resolved).href);
     return mod.default || mod;
   }
 
@@ -114,9 +113,8 @@ async function loadMapping(mappingPath) {
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(rawArgs) {
-  // Strip "node cli.js transform" prefix
-  // rawArgs[0] = "node", rawArgs[1] = "cli.js", rawArgs[2] = "transform"
-  const rest = rawArgs.slice(3);
+  // Strip "node cli.js [transform]" prefix — parseArgs skips unknown tokens like "transform"
+  const rest = rawArgs.slice(2);
   const args = parseArgs(rest);
 
   if (args.help || (!args.data && !args.mapping)) {
