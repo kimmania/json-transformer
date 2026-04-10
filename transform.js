@@ -404,6 +404,16 @@ function transformForEach(sourceRow, fieldDef, dictionaries) {
     sourceArray = sourceArray.filter(item => evaluateCondition(item, fieldDef.filter));
   }
 
+  if (fieldDef.distinct) {
+    const seen = new Set();
+    sourceArray = sourceArray.filter(item => {
+      const key = String(resolvePath(item, fieldDef.distinct) ?? "");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   if (fieldDef.sortBy) {
     const sortField = typeof fieldDef.sortBy === "string" ? fieldDef.sortBy : fieldDef.sortBy.field;
     const desc = typeof fieldDef.sortBy === "object" && fieldDef.sortBy.order === "desc";
@@ -429,6 +439,16 @@ function transformAggregate(sourceRow, fieldDef, dictionaries) {
 
   if (fieldDef.filter) {
     sourceArray = sourceArray.filter(item => evaluateCondition(item, fieldDef.filter));
+  }
+
+  if (fieldDef.distinct) {
+    const seen = new Set();
+    sourceArray = sourceArray.filter(item => {
+      const key = String(resolvePath(item, fieldDef.distinct) ?? "");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   if (sourceArray.length === 0) {

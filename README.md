@@ -274,6 +274,43 @@ fields: {
 }
 ```
 
+#### Deduplicating items (`distinct`)
+
+Add `distinct` to keep only the first occurrence of each unique value of a source field, dropping later duplicates. The pipeline order is **filter → distinct → sortBy → transform**:
+
+```javascript
+// One entry per unique SKU — later duplicate lines are dropped
+unique_skus: {
+  forEach:  "items",
+  distinct: "sku",
+  fields: {
+    sku:  { from: "sku" },
+    name: { from: "name" },
+  },
+},
+
+// Compose with filter and sortBy
+premium_skus: {
+  forEach:  "items",
+  filter:   { field: "unit_price", op: "gt", value: 10 },
+  distinct: "sku",
+  sortBy:   "sku",
+  fields: {
+    sku:        { from: "sku" },
+    unit_price: { from: "unit_price", format: "round", precision: 2 },
+  },
+},
+
+// Aggregate on the deduplicated set — count of unique SKUs, not total lines
+unique_sku_count: {
+  forEach:   "items",
+  distinct:  "sku",
+  aggregate: "count",
+},
+```
+
+`distinct` supports dot-paths and works with `aggregate` as well as `fields`.
+
 #### Filtering items (`filter`)
 
 Add a `filter` condition to skip items that don't match before transforming or aggregating. Uses the same condition syntax as `if`:
@@ -714,6 +751,7 @@ json-xslt/
 ├── mapping-employee.js        # Example: composite conditions
 ├── mapping-nested.js          # Example: nested objects & forEach
 ├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
+├── mapping-distinct.js        # Example: distinct deduplication (with filter, sortBy, aggregate)
 ├── mapping-validated.js       # Example: schema validation (all rule types)
 ├── mapping-data-cleaning.js   # Example: passthrough, template, coalesce, round, split, join, truncate, replace, casing
 ├── mapping-timesheet.js       # Example: dictionary lookups (inline + $file)
@@ -722,6 +760,7 @@ json-xslt/
 ├── test-data.json             # Sample flat data
 ├── test-nested.json           # Sample nested data
 ├── test-order-summary.json    # Sample order data (for aggregation/filter/sort demo)
+├── test-distinct.json         # Sample order data with duplicate line items (for distinct demo)
 ├── test-invalid.json          # Sample data with intentional errors (for validation demo)
 ├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
 ├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
@@ -740,7 +779,6 @@ json-xslt/
 ## Future ideas
 
 **Data shaping**
-- `distinct` — deduplicate `forEach` output by a field (e.g. unique SKUs only)
 - `groupBy` — reshape a flat array into an object keyed by a field value (e.g. group line items by status)
 - `flatten` — collapse a nested array one level before iterating
 
