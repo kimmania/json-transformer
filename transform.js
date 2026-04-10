@@ -277,10 +277,22 @@ function transformField(sourceRow, fieldDef, dictionaries = {}) {
     return applyFormat(result, fieldDef);
   }
 
-  // 5. Conditional (if / then / else)
+  // 5. Conditional (if / elseIf / else)
   if (fieldDef.if) {
-    const passes = evaluateCondition(sourceRow, fieldDef.if);
-    const branch = passes ? fieldDef.then : fieldDef.else;
+    let branch;
+    let map;
+
+    if (evaluateCondition(sourceRow, fieldDef.if)) {
+      branch = fieldDef.then;
+      map    = fieldDef.thenMap;
+    } else if (Array.isArray(fieldDef.elseIf)) {
+      const matched = fieldDef.elseIf.find(c => evaluateCondition(sourceRow, c.if));
+      branch = matched !== undefined ? matched.then : fieldDef.else;
+      map    = matched === undefined ? fieldDef.elseMap : undefined;
+    } else {
+      branch = fieldDef.else;
+      map    = fieldDef.elseMap;
+    }
 
     // If the branch is a field definition object, resolve it recursively
     let result;
@@ -290,7 +302,6 @@ function transformField(sourceRow, fieldDef, dictionaries = {}) {
       result = branch;
     }
 
-    const map = passes ? fieldDef.thenMap : fieldDef.elseMap;
     if (typeof map === "object" && result !== undefined && result !== null) {
       return map[result] ?? result;
     }

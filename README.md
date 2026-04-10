@@ -454,6 +454,25 @@ contact_info: {
 
 All condition fields support dot-paths: `{ field: "address.city", op: "exists", value: true }`.
 
+#### `elseIf` chains
+
+Add an `elseIf` array to check additional conditions when the initial `if` fails. The first matching clause wins; `else` is the final fallback:
+
+```javascript
+grade: {
+  if:     { field: "score", op: "gte", value: 90 },
+  then:   "A",
+  elseIf: [
+    { if: { field: "score", op: "gte", value: 80 }, then: "B" },
+    { if: { field: "score", op: "gte", value: 70 }, then: "C" },
+    { if: { field: "score", op: "gte", value: 60 }, then: "D" },
+  ],
+  else: "F",
+}
+```
+
+`then`/`else` in `elseIf` clauses support field definitions just like the top-level `then`/`else`. `thenMap` applies only when the top-level `if` passes; `elseMap` applies only when no condition matched and `else` is used.
+
 #### `thenMap` / `elseMap`
 
 Map the `then`/`else` result through a value map in the same step:
@@ -625,5 +644,4 @@ json-xslt/
 
 ## Future ideas
 
-- Multiple condition chains (`if` / `else if` / `else`)
 - TypeScript declarations
