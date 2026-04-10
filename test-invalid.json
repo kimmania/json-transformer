@@ -1,0 +1,26 @@
+[
+  {
+    "EmployeeID": "E001",
+    "Name":       "Alice Smith",
+    "Age":        32,
+    "Email":      "alice@example.com",
+    "Salary":     75000,
+    "Department": "Engineering"
+  },
+  {
+    "EmployeeID": null,
+    "Name":       "B",
+    "Age":        -5,
+    "Email":      "not-an-email",
+    "Salary":     120000,
+    "Department": "Marketing"
+  },
+  {
+    "EmployeeID": "E003",
+    "Name":       "Carol White",
+    "Age":        28,
+    "Email":      "carol@example.com",
+    "Salary":     -500,
+    "Department": "Engineering"
+  }
+]

@@ -61,6 +61,68 @@ export default {
 };
 ```
 
+### Schema validation (`schema`)
+
+Add a `schema` block to validate source data before transforming. Every row is checked against the schema and all errors are collected — processing continues so you get a complete picture of data quality issues in one pass.
+
+```javascript
+export default {
+  id: "employee-import",
+  schema: {
+    EmployeeID: { required: true, type: "string" },
+    Name:       { required: true, type: "string", minLength: 2 },
+    Age:        { required: true, type: "number", min: 16, max: 120 },
+    Email:      { required: true, pattern: "^[^@]+@[^@]+\\.[^@]+$" },
+    Salary:     { type: "number", min: 0 },
+    Department: {
+      validate: (v) =>
+        ["Engineering", "Marketing", "Sales", "HR"].includes(v) ||
+        `"${v}" is not a recognised department`,
+    },
+  },
+  fields: { ... },
+};
+```
+
+#### Validation rules
+
+| Rule | Type | Description |
+|---|---|---|
+| `required` | boolean | Field must be present and non-null |
+| `type` | string | Expected type: `"string"`, `"number"`, `"boolean"`, `"array"`, `"object"` |
+| `min` / `max` | number | Numeric value range |
+| `minLength` / `maxLength` | number | String or array length range |
+| `pattern` | string | Regex the string value must match |
+| `validate` | function | Custom rule — return `true` to pass, or an error message string |
+
+Schema fields support dot-paths: `"address.city": { required: true }`.
+
+#### Reading errors
+
+Validation and transformation are separate steps. Call `validate()` first, then decide whether to proceed:
+
+```javascript
+import { validate, transform } from "./transform.js";
+
+const { valid, errors } = validate(source, mapping);
+
+if (errors.length > 0) {
+  console.error("Fix these before importing:");
+  for (const e of errors) {
+    console.error(`  row ${e.row}, field "${e.field}": ${e.message}`);
+  }
+}
+
+if (valid) {
+  const data = transform(source, mapping);
+  saveToDatabase(data);
+}
+```
+
+Each error object has the shape `{ row: number, field: string, message: string }`. `valid` is `true` when `errors` is empty.
+
+When using the CLI, `validate()` runs automatically if the mapping has a `schema` and any errors are printed to stderr before the transformed output is written.
+
 ### Passthrough
 
 Set `passthrough: true` to copy all source fields to the output before applying `fields`. This is useful when you only want to transform or add a few fields without listing every field you want to keep.
@@ -566,7 +628,13 @@ async function prepareMapping(mapping: Mapping, baseDir?: string): Promise<Mappi
 // Synchronous alternative — throws if any dictionary uses $file
 function prepareMappingSync(mapping: Mapping, baseDir?: string): Mapping
 
-// Transform an array of source objects
+// Validate source data against a mapping's schema — no transformation performed
+function validate(source: Array<Object>, mapping: Mapping): {
+  valid:  boolean;
+  errors: Array<{ row: number; field: string; message: string }>;
+}
+
+// Transform an array of source objects — schema is not checked, call validate() first if needed
 function transform(source: Array<Object>, mapping: Mapping, dictionaries?: Record<string, Object>): Array<Object>
 
 // Transform a single source object
@@ -621,6 +689,7 @@ json-xslt/
 ├── mapping-employee.js        # Example: composite conditions
 ├── mapping-nested.js          # Example: nested objects & forEach
 ├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
+├── mapping-validated.js       # Example: schema validation (all rule types)
 ├── mapping-data-cleaning.js   # Example: passthrough, template, coalesce, round, split, join
 ├── mapping-timesheet.js       # Example: dictionary lookups (inline + $file)
 ├── demo.js                    # In-Node demo
@@ -628,6 +697,7 @@ json-xslt/
 ├── test-data.json             # Sample flat data
 ├── test-nested.json           # Sample nested data
 ├── test-order-summary.json    # Sample order data (for aggregation/filter/sort demo)
+├── test-invalid.json          # Sample data with intentional errors (for validation demo)
 ├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
 ├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
 ├── dictionaries/
@@ -658,10 +728,6 @@ json-xslt/
 - `include` allowlist on `passthrough` — currently only `exclude` is supported
 - Mapping composition — extend another mapping definition, similar to how CSS classes compose
 - Cross-row computations — running totals, percentage of dataset total, ranking rows by a field, previous/next row references
-
-**Validation**
-- `required` — throw or warn when a source field is missing
-- Schema validation — assert expected types on source fields before transforming
 
 **CLI / engine**
 - Streaming support — process large files line by line rather than loading the full array into memory

@@ -466,8 +466,83 @@ export function transformOne(sourceRow, mapping, dictionaries = {}) {
   return result;
 }
 
+// ── Schema validation ────────────────────────────────────────────────
+
+/**
+ * Validate a single source row against a schema definition.
+ * Returns an array of { row, field, message } error objects.
+ */
+function validateRow(sourceRow, schema, rowIndex) {
+  const errors = [];
+
+  for (const [field, rules] of Object.entries(schema)) {
+    const value = resolvePath(sourceRow, field);
+    const missing = value === undefined || value === null;
+
+    if (rules.required && missing) {
+      errors.push({ row: rowIndex, field, message: "required field is missing" });
+      continue; // no point checking further rules if value is absent
+    }
+
+    if (missing) continue;
+
+    if (rules.type) {
+      const actual = Array.isArray(value) ? "array" : typeof value;
+      if (actual !== rules.type) {
+        errors.push({ row: rowIndex, field, message: `expected type "${rules.type}", got "${actual}"` });
+      }
+    }
+
+    if (rules.min !== undefined && Number(value) < rules.min) {
+      errors.push({ row: rowIndex, field, message: `value ${value} is below minimum ${rules.min}` });
+    }
+    if (rules.max !== undefined && Number(value) > rules.max) {
+      errors.push({ row: rowIndex, field, message: `value ${value} exceeds maximum ${rules.max}` });
+    }
+
+    if (rules.minLength !== undefined && value.length < rules.minLength) {
+      errors.push({ row: rowIndex, field, message: `length ${value.length} is below minimum length ${rules.minLength}` });
+    }
+    if (rules.maxLength !== undefined && value.length > rules.maxLength) {
+      errors.push({ row: rowIndex, field, message: `length ${value.length} exceeds maximum length ${rules.maxLength}` });
+    }
+
+    if (rules.pattern) {
+      try {
+        if (!new RegExp(rules.pattern).test(String(value))) {
+          errors.push({ row: rowIndex, field, message: `value does not match pattern "${rules.pattern}"` });
+        }
+      } catch {
+        errors.push({ row: rowIndex, field, message: `invalid pattern "${rules.pattern}"` });
+      }
+    }
+
+    if (typeof rules.validate === "function") {
+      const outcome = rules.validate(value, sourceRow);
+      if (outcome !== true) {
+        errors.push({ row: rowIndex, field, message: typeof outcome === "string" ? outcome : "validation failed" });
+      }
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Validate an array of source objects against a mapping's schema.
+ * Returns { valid, errors } without transforming any data.
+ * errors is [] and valid is true when all rows pass.
+ */
+export function validate(source, mapping) {
+  if (!mapping.schema) return { valid: true, errors: [] };
+
+  const errors = source.flatMap((row, i) => validateRow(row, mapping.schema, i));
+  return { valid: errors.length === 0, errors };
+}
+
 /**
  * Transform an array of source objects.
+ * Returns Array<Object>. Schema is not checked — call validate() first if needed.
  */
 export function transform(source, mapping, dictionaries = {}) {
   return source.map((row, i) => {

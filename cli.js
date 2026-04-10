@@ -15,7 +15,7 @@
  * If --output is omitted, results are written to stdout (piped-friendly).
  */
 
-import { transform, prepareMapping } from "./transform.js";
+import { transform, validate, prepareMapping } from "./transform.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -150,6 +150,18 @@ async function main(rawArgs) {
 
   // Prepare mapping (loads external dictionaries, builds lookup maps)
   const ready = await prepareMapping(mapping, mappingDir);
+
+  // Validate (if the mapping defines a schema)
+  if (ready.schema) {
+    const { errors } = validate(sourceData, ready);
+    if (errors.length > 0) {
+      console.error(`\n${errors.length} validation error(s):`);
+      for (const e of errors) {
+        console.error(`  row ${e.row}, field "${e.field}": ${e.message}`);
+      }
+      console.error();
+    }
+  }
 
   // Transform
   const results = transform(sourceData, ready);
