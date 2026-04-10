@@ -15,10 +15,10 @@
  * If --output is omitted, results are written to stdout (piped-friendly).
  */
 
-import { transform, prepareMapping } from "./transform.js";
+import { transform, validate, prepareMapping } from "./transform.js";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -103,8 +103,7 @@ async function loadMapping(mappingPath) {
   }
 
   if (mappingPath.endsWith(".js")) {
-    const fileUrl = `file://${resolved.replace(/\\/g, "/")}`;
-    const mod = await import(fileUrl);
+    const mod = await import(pathToFileURL(resolved).href);
     return mod.default || mod;
   }
 
@@ -114,9 +113,8 @@ async function loadMapping(mappingPath) {
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(rawArgs) {
-  // Strip "node cli.js transform" prefix
-  // rawArgs[0] = "node", rawArgs[1] = "cli.js", rawArgs[2] = "transform"
-  const rest = rawArgs.slice(3);
+  // Strip "node cli.js [transform]" prefix — parseArgs skips unknown tokens like "transform"
+  const rest = rawArgs.slice(2);
   const args = parseArgs(rest);
 
   if (args.help || (!args.data && !args.mapping)) {
@@ -152,6 +150,18 @@ async function main(rawArgs) {
 
   // Prepare mapping (loads external dictionaries, builds lookup maps)
   const ready = await prepareMapping(mapping, mappingDir);
+
+  // Validate (if the mapping defines a schema)
+  if (ready.schema) {
+    const { errors } = validate(sourceData, ready);
+    if (errors.length > 0) {
+      console.error(`\n${errors.length} validation error(s):`);
+      for (const e of errors) {
+        console.error(`  row ${e.row}, field "${e.field}": ${e.message}`);
+      }
+      console.error();
+    }
+  }
 
   // Transform
   const results = transform(sourceData, ready);

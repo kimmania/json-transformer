@@ -1,0 +1,19 @@
+[
+  {
+    "order_id": "ORD-001",
+    "customer": "Alice Smith",
+    "items": [
+      { "sku": "WIDGET-A",  "qty": 3, "unit_price": 12.50, "discount_pct": 10 },
+      { "sku": "GADGET-B",  "qty": 1, "unit_price": 49.99, "discount_pct": 0  },
+      { "sku": "WIDGET-A",  "qty": 2, "unit_price": 12.50, "discount_pct": 10 }
+    ]
+  },
+  {
+    "order_id": "ORD-002",
+    "customer": "Bob Jones",
+    "items": [
+      { "sku": "GADGET-B",  "qty": 2, "unit_price": 49.99, "discount_pct": 5 },
+      { "sku": "DOOHICKEY", "qty": 5, "unit_price":  4.00, "discount_pct": 0 }
+    ]
+  }
+]
