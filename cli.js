@@ -32,7 +32,7 @@ USAGE
   node cli.js transform --data <file> --mapping <file> [options]
 
 OPTIONS
-  -d, --data      <file>   Input JSON data (array of objects)
+  -d, --data      <file>   Input data file (.json array of objects, or .csv with header row)
   -m, --mapping   <file>   Mapping definition (.js or .json)
   -o, --output    <file>   Output file (default: stdout)
   --compact                Minified JSON output (no whitespace)
@@ -40,6 +40,7 @@ OPTIONS
 
 EXAMPLES
   node cli.js transform -d users.json -m crm-map.js
+  node cli.js transform -d users.csv -m crm-map.js
   node cli.js transform -d src.json -m map.json -o out.json
   node cli.js transform -d data.json -m map.js | jq '.[0]'
 
@@ -89,6 +90,72 @@ function parseArgs(argv) {
   return args;
 }
 
+// ── CSV parser ───────────────────────────────────────────────────────
+
+/**
+ * Parse a CSV string into an array of objects using the header row as keys.
+ * Handles quoted fields (including commas and newlines inside quotes).
+ */
+function parseCsv(text) {
+  const rows = [];
+  let field = "";
+  let inQuotes = false;
+  const currentRow = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if (inQuotes) {
+      if (ch === '"' && next === '"') {
+        field += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      currentRow.push(field);
+      field = "";
+    } else if (ch === '\r' && next === '\n') {
+      currentRow.push(field);
+      field = "";
+      rows.push([...currentRow]);
+      currentRow.length = 0;
+      i++;
+    } else if (ch === '\n' || ch === '\r') {
+      currentRow.push(field);
+      field = "";
+      rows.push([...currentRow]);
+      currentRow.length = 0;
+    } else {
+      field += ch;
+    }
+  }
+
+  // Flush last field/row
+  if (field || currentRow.length > 0) {
+    currentRow.push(field);
+    rows.push([...currentRow]);
+  }
+
+  if (rows.length < 2) return [];
+
+  const headers = rows[0];
+  return rows.slice(1)
+    .filter(row => row.some(f => f.trim() !== ""))
+    .map(row => {
+      const obj = {};
+      for (let i = 0; i < headers.length; i++) {
+        obj[headers[i]] = row[i] ?? "";
+      }
+      return obj;
+    });
+}
+
 // ── Mapping loader ───────────────────────────────────────────────────
 
 async function loadMapping(mappingPath) {
@@ -131,13 +198,21 @@ async function main(rawArgs) {
     die(`data file not found: ${dataPath}`);
   }
   let sourceData;
-  try {
-    sourceData = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
-  } catch (e) {
-    die(`invalid JSON in data file: ${e.message}`);
-  }
-  if (!Array.isArray(sourceData)) {
-    die("data file must contain a JSON array of objects");
+  if (args.data.endsWith(".csv")) {
+    try {
+      sourceData = parseCsv(fs.readFileSync(dataPath, "utf-8"));
+    } catch (e) {
+      die(`failed to parse CSV file: ${e.message}`);
+    }
+  } else {
+    try {
+      sourceData = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
+    } catch (e) {
+      die(`invalid JSON in data file: ${e.message}`);
+    }
+    if (!Array.isArray(sourceData)) {
+      die("data file must contain a JSON array of objects");
+    }
   }
 
   // Load mapping

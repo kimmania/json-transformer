@@ -1,0 +1,7 @@
+EmployeeName,Status,Department,Title,Level,EmployeeType,YearsEmployed,Salary,HourlyRate,Email,EmergencyPhone,BirthYear
+Alice Smith,active,Engineering,Senior Engineer,senior,full-time,5,95000,0,alice@example.com,555-0101,1988
+Bob Jones,active,Marketing,Marketing Manager,manager,full-time,3,72000,0,bob@example.com,,1990
+Carol White,inactive,Engineering,Staff Engineer,staff,contractor,7,0,85,carol@example.com,555-0202,1985
+Dave Brown,active,Data,Principal Analyst,principal,full-time,2,88000,0,dave.brown,555-0303,1992
+Eve Davis,active,HR,HR Coordinator,junior,full-time,1,52000,0,eve@example.com,,1995
+Frank Miller,active,Management,VP of Product,vp,full-time,8,140000,0,frank@example.com,555-0404,1980

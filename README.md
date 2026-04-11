@@ -809,6 +809,9 @@ A zero-dependency CLI tool ships with the engine. Run transforms directly from t
 # Transform and print to stdout (pipe-friendly)
 node cli.js transform -d data.json -m mapping.js
 
+# Transform a CSV file (header row becomes field names)
+node cli.js transform -d data.csv -m mapping.js
+
 # Transform with JSON mapping (no compute functions needed)
 node cli.js transform -d data.json -m mapping.json
 
@@ -822,6 +825,19 @@ node cli.js transform -d data.json -m mapping.js --compact
 Mapping formats:
 - **`.js`** — full mapping with `compute()` functions (ES modules, `export default`)
 - **`.json`** — pure declarative mapping, serializable and shareable (no `compute()`)
+
+### CSV input
+
+The CLI accepts `.csv` files as input. The first row is treated as the header and becomes the field names for each record. Quoted fields, embedded commas, and embedded newlines are all handled correctly.
+
+**Important:** all CSV values arrive as strings — use `format: "number"` (or `format: "boolean"`) in your field definitions to coerce them when needed:
+
+```javascript
+salary: { from: "Salary", format: "number" },
+active: { from: "IsActive", format: "boolean" },
+```
+
+Empty cells (`,,`) become empty strings `""` rather than `null` or `undefined`. This means an `exists` condition will return `true` for an empty cell — use `{ field: "Phone", op: "truthy" }` instead if you want to treat blank cells as absent.
 
 ## File structure
 
@@ -849,6 +865,7 @@ json-xslt/
 ├── test-invalid.json          # Sample data with intentional errors (for validation demo)
 ├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
 ├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
+├── test-employees.csv         # Sample employee data in CSV format (for CSV input demo)
 ├── dictionaries/
 │   ├── employees.json         # Employee reference data (indexed by employee_id)
 │   └── departments.json       # Department reference data (indexed by code)
