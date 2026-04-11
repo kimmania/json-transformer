@@ -32,7 +32,7 @@ USAGE
   node cli.js transform --data <file> --mapping <file> [options]
 
 OPTIONS
-  -d, --data      <file>   Input data file (.json array of objects, or .csv with header row)
+  -d, --data      <file>   Input data file (.json array or .csv); repeat to merge multiple files
   -m, --mapping   <file>   Mapping definition (.js or .json)
   -o, --output    <file>   Output file (default: stdout)
   --compact                Minified JSON output (no whitespace)
@@ -41,6 +41,7 @@ OPTIONS
 EXAMPLES
   node cli.js transform -d users.json -m crm-map.js
   node cli.js transform -d users.csv -m crm-map.js
+  node cli.js transform -d jan.json -d feb.json -d mar.json -m map.js
   node cli.js transform -d src.json -m map.json -o out.json
   node cli.js transform -d data.json -m map.js | jq '.[0]'
 
@@ -59,7 +60,7 @@ function die(msg) {
 
 function parseArgs(argv) {
   const args = {
-    data: null,
+    data: [],
     mapping: null,
     output: null,
     pretty: true,
@@ -71,7 +72,7 @@ function parseArgs(argv) {
     const a = argv[i];
     switch (a) {
       case "-d": case "--data":
-        i++; args.data = argv[i]; break;
+        i++; args.data.push(argv[i]); break;
       case "-m": case "--mapping":
         i++; args.mapping = argv[i]; break;
       case "-o": case "--output":
@@ -184,35 +185,39 @@ async function main(rawArgs) {
   const rest = rawArgs.slice(2);
   const args = parseArgs(rest);
 
-  if (args.help || (!args.data && !args.mapping)) {
+  if (args.help || (args.data.length === 0 && !args.mapping)) {
     printHelp();
     return;
   }
 
-  if (!args.data) die("missing --data parameter");
+  if (args.data.length === 0) die("missing --data parameter");
   if (!args.mapping) die("missing --mapping parameter");
 
-  // Load data
-  const dataPath = path.resolve(args.data);
-  if (!fs.existsSync(dataPath)) {
-    die(`data file not found: ${dataPath}`);
-  }
-  let sourceData;
-  if (args.data.endsWith(".csv")) {
-    try {
-      sourceData = parseCsv(fs.readFileSync(dataPath, "utf-8"));
-    } catch (e) {
-      die(`failed to parse CSV file: ${e.message}`);
+  // Load and merge data files
+  const sourceData = [];
+  for (const dataArg of args.data) {
+    const dataPath = path.resolve(dataArg);
+    if (!fs.existsSync(dataPath)) {
+      die(`data file not found: ${dataPath}`);
     }
-  } else {
-    try {
-      sourceData = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
-    } catch (e) {
-      die(`invalid JSON in data file: ${e.message}`);
+    let records;
+    if (dataArg.endsWith(".csv")) {
+      try {
+        records = parseCsv(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`failed to parse CSV file "${dataArg}": ${e.message}`);
+      }
+    } else {
+      try {
+        records = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`invalid JSON in data file "${dataArg}": ${e.message}`);
+      }
+      if (!Array.isArray(records)) {
+        die(`data file must contain a JSON array of objects: ${dataArg}`);
+      }
     }
-    if (!Array.isArray(sourceData)) {
-      die("data file must contain a JSON array of objects");
-    }
+    sourceData.push(...records);
   }
 
   // Load mapping

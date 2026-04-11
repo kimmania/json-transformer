@@ -812,6 +812,10 @@ node cli.js transform -d data.json -m mapping.js
 # Transform a CSV file (header row becomes field names)
 node cli.js transform -d data.csv -m mapping.js
 
+# Merge multiple input files before transforming (JSON and CSV can be mixed)
+node cli.js transform -d jan.json -d feb.json -d mar.json -m mapping.js
+node cli.js transform -d legacy.json -d new-export.csv -m mapping.js
+
 # Transform with JSON mapping (no compute functions needed)
 node cli.js transform -d data.json -m mapping.json
 
@@ -883,12 +887,12 @@ json-xslt/
 **Data shaping**
 
 **Mapping-level**
-- Mapping composition — extend another mapping definition, similar to how CSS classes compose
-- Cross-row computations — running totals, percentage of dataset total, ranking rows by a field, previous/next row references
+- Mapping composition — a formal `extends` key that lets one mapping inherit from another, with child fields overriding base fields on conflict. The primary value over plain JS `import` + spread (which already works today for `.js` mappings) is supporting composition in `.json` mappings via file-path references, and making inheritance chains engine-visible so they can be validated and documented. Key design questions: what gets merged beyond `fields` (schema? dictionaries? passthrough?), how circular references are detected, and whether multiple inheritance via a `mixins` array is in scope.
+- Cross-row computations — running totals, percentage of dataset total, ranking rows by a field, previous/next row references. See [docs/cross-row-computations.md](docs/cross-row-computations.md) for a detailed design analysis.
 
 **CLI / engine**
-- Streaming support — process large files line by line rather than loading the full array into memory
-- Multiple input files — merge or zip two source files before transforming
+- Streaming support — process large files line by line rather than loading the full array into memory. See [docs/streaming-support.md](docs/streaming-support.md) for a detailed design analysis.
+- Join / zip two input files — combine two separately-shaped datasets by a shared key field, similar to a SQL join. Unlike the existing dictionary feature (which treats one file as a lookup table), a join would treat both files as equal-rank datasets. Key design questions: join type (inner / left / outer), field namespacing when both sides share a field name, and whether many-to-many expansion is in scope.
 
 **Tooling**
 - TypeScript declarations
