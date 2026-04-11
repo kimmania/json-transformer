@@ -888,7 +888,7 @@ json-xslt/
 
 **Mapping-level**
 - Mapping composition — a formal `extends` key that lets one mapping inherit from another, with child fields overriding base fields on conflict. The primary value over plain JS `import` + spread (which already works today for `.js` mappings) is supporting composition in `.json` mappings via file-path references, and making inheritance chains engine-visible so they can be validated and documented. Key design questions: what gets merged beyond `fields` (schema? dictionaries? passthrough?), how circular references are detected, and whether multiple inheritance via a `mixins` array is in scope.
-- Cross-row computations — running totals, percentage of dataset total, ranking rows by a field, previous/next row references
+- Cross-row computations — running totals, percentage of dataset total, ranking rows by a field, previous/next row references. See [docs/cross-row-computations.md](docs/cross-row-computations.md) for a detailed design analysis.
 
 **CLI / engine**
 - Streaming support — process large files line by line rather than loading the full array into memory
