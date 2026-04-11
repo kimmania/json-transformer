@@ -891,7 +891,7 @@ json-xslt/
 - Cross-row computations — running totals, percentage of dataset total, ranking rows by a field, previous/next row references. See [docs/cross-row-computations.md](docs/cross-row-computations.md) for a detailed design analysis.
 
 **CLI / engine**
-- Streaming support — process large files line by line rather than loading the full array into memory
+- Streaming support — process large files line by line rather than loading the full array into memory. See [docs/streaming-support.md](docs/streaming-support.md) for a detailed design analysis.
 - Join / zip two input files — combine two separately-shaped datasets by a shared key field, similar to a SQL join. Unlike the existing dictionary feature (which treats one file as a lookup table), a join would treat both files as equal-rank datasets. Key design questions: join type (inner / left / outer), field namespacing when both sides share a field name, and whether many-to-many expansion is in scope.
 
 **Tooling**
