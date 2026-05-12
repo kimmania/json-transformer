@@ -14,8 +14,8 @@ Sometimes you need to morph API responses, migrate data between schemas, or norm
 
 ```bash
 # No dependencies — just copy the files
-git clone <this-repo>
-cd json-xslt
+git clone https://github.com/kimmania/json-transformer.git
+cd json-transformer
 ```
 
 ## Quick start
@@ -968,7 +968,7 @@ Supported features in `buildMapping()`: `from`, `rename`, `format`, `map`, `comp
 ## File structure
 
 ```
-json-xslt/
+json-transformer/
 ├── transform.js               # Core engine (import this)
 ├── cli.js                     # CLI tool
 ├── mapping-builder.js         # Mapping generator: inspect data and build mappings
@@ -1019,5 +1019,5 @@ json-xslt/
 - Join / zip two input files — combine two separately-shaped datasets by a shared key field, similar to a SQL join. Unlike the existing dictionary feature (which treats one file as a lookup table), a join would treat both files as equal-rank datasets. Key design questions: join type (inner / left / outer), field namespacing when both sides share a field name, and whether many-to-many expansion is in scope.
 
 **Tooling**
-- Interactive mapping builder wizard (`mapping-builder.js --data` without `--auto`)
+- ~~Interactive mapping builder wizard (`mapping-builder.js --data` without `--auto`)~~ — **implemented**
 - TypeScript declarations
