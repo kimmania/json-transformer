@@ -53,6 +53,14 @@ EXAMPLES
 MAPPING FORMATS
   .json  Pure declarative mapping (all features except compute functions)
   .js    Full mapping with compute(), dynamic import support
+
+BUILDING MAPPINGS
+  Need help creating a mapping? Use mapping-builder.js to inspect your
+  data and generate a mapping interactively or automatically:
+
+    node mapping-builder.js --inspect <file>   # Analyze data structure
+    node mapping-builder.js --data <file>       # Interactive wizard
+    node mapping-builder.js --data <file> --auto # Auto-generate
 `);
 }
 
