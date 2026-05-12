@@ -495,3 +495,11 @@ describe("Integration: inspect + buildMappingAuto on real data", () => {
 });
 
 console.log("All tests defined — run with: node --test mapping-builder.test.js");
+
+// ── Wizard exports ───────────────────────────────────────────────────────────
+
+describe("Wizard exports", () => {
+  it("runWizard is exported as a function", () => {
+    assert.equal(typeof mb.runWizard, "function");
+  });
+});

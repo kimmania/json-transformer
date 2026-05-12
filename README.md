@@ -874,6 +874,35 @@ Fields discovered: 9
 
 For a machine-readable report, add `-o report.json`.
 
+### Interactive wizard
+
+Run without `--auto` to launch a guided field-by-field prompt:
+
+```bash
+node mapping-builder.js --data test-data.json -o mapping.js
+```
+
+The wizard walks you through each discovered field with smart defaults:
+- Target field names pre-filled as `snake_case`
+- Date strings pre-selected for `format: "date"`
+- Decimal numeric strings pre-selected for `format: "number"`
+- Arrays launch a **recursive sub-wizard** for their sub-fields
+
+At each field you can:
+- **[a]** accept the default
+- **[c]** customize: pick from rename, format, map, template, if/then/else, coalesce, value, default, forEach, compute
+- **[s]** skip the field
+- **[b]** go back to the previous field
+- **[p]** preview the mapping built so far
+
+On the preview screen:
+- **[w]** write to file
+- **[e]** edit a specific field
+- **[t]** test-transform the first 3 records to verify output
+- **[q]** quit without saving
+
+Non-TTY environments (piped stdin, CI) automatically fall back to `--auto` mode.
+
 ### Auto-generate a mapping
 
 Generate a best-guess mapping with `--auto`:

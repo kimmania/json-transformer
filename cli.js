@@ -16,6 +16,7 @@
  */
 
 import { transform, validate, prepareMapping } from "./transform.js";
+import { inspect, formatInspectReport } from "./mapping-builder.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -30,11 +31,13 @@ json-xslt — Declarative JSON transformation CLI
 
 USAGE
   node cli.js transform --data <file> --mapping <file> [options]
+  node cli.js --inspect <file> [options]
 
 OPTIONS
   -d, --data      <file>   Input data file (.json array or .csv); repeat to merge multiple files
   -m, --mapping   <file>   Mapping definition (.js or .json)
   -o, --output    <file>   Output file (default: stdout)
+  -i, --inspect   <file>   Inspect a data file and print a field analysis report
   --compact                Minified JSON output (no whitespace)
   -h, --help               Show this help
 
@@ -44,6 +47,8 @@ EXAMPLES
   node cli.js transform -d jan.json -d feb.json -d mar.json -m map.js
   node cli.js transform -d src.json -m map.json -o out.json
   node cli.js transform -d data.json -m map.js | jq '.[0]'
+  node cli.js --inspect data.json
+  node cli.js -i data.json -o inspection.json
 
 MAPPING FORMATS
   .json  Pure declarative mapping (all features except compute functions)
@@ -60,9 +65,10 @@ function die(msg) {
 
 function parseArgs(argv) {
   const args = {
-    data: [],
+    data: null,
     mapping: null,
     output: null,
+    inspect: null,
     pretty: true,
     help: false,
   };
@@ -72,13 +78,15 @@ function parseArgs(argv) {
     const a = argv[i];
     switch (a) {
       case "-d": case "--data":
-        i++; args.data.push(argv[i]); break;
+        i++; if (!args.data) args.data = []; args.data.push(argv[i]); break;
       case "-m": case "--mapping":
         i++; args.mapping = argv[i]; break;
       case "-o": case "--output":
         i++; args.output = argv[i]; break;
       case "--compact":
         args.pretty = false; break;
+      case "-i": case "--inspect":
+        i++; args.inspect = argv[i]; break;
       case "-h": case "--help":
         args.help = true; break;
       default:
@@ -185,12 +193,51 @@ async function main(rawArgs) {
   const rest = rawArgs.slice(2);
   const args = parseArgs(rest);
 
-  if (args.help || (args.data.length === 0 && !args.mapping)) {
+  if (args.help || (!args.data && !args.mapping && !args.inspect)) {
     printHelp();
     return;
   }
 
-  if (args.data.length === 0) die("missing --data parameter");
+  // ── Inspect mode ────────────────────────────────────────────────────────
+  if (args.inspect) {
+    const dataPath = path.resolve(args.inspect);
+    if (!fs.existsSync(dataPath)) {
+      die(`data file not found: ${dataPath}`);
+    }
+    let data;
+    if (args.inspect.endsWith(".csv")) {
+      try {
+        data = parseCsv(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`failed to parse CSV file "${args.inspect}": ${e.message}`);
+      }
+    } else {
+      try {
+        data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`invalid JSON in data file "${args.inspect}": ${e.message}`);
+      }
+      if (!Array.isArray(data)) {
+        die(`data file must contain a JSON array of objects: ${args.inspect}`);
+      }
+    }
+
+    const report = inspect(data);
+    const output = args.output
+      ? JSON.stringify(report, null, 2)
+      : formatInspectReport(report);
+
+    if (args.output) {
+      fs.writeFileSync(path.resolve(args.output), output + "\n", "utf-8");
+      console.error(`Wrote inspection report to ${path.resolve(args.output)}`);
+    } else {
+      process.stdout.write(output + "\n");
+    }
+    return;
+  }
+
+  // ── Transform mode ─────────────────────────────────────────────────────
+  if (!args.data || args.data.length === 0) die("missing --data parameter");
   if (!args.mapping) die("missing --mapping parameter");
 
   // Load and merge data files
