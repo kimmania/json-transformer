@@ -843,12 +843,107 @@ active: { from: "IsActive", format: "boolean" },
 
 Empty cells (`,,`) become empty strings `""` rather than `null` or `undefined`. This means an `exists` condition will return `true` for an empty cell — use `{ field: "Phone", op: "truthy" }` instead if you want to treat blank cells as absent.
 
+## Mapping builder (`mapping-builder.js`)
+
+A companion tool that inspects source JSON and generates mapping files automatically. Use it to bootstrap a mapping from sample data instead of writing one by hand.
+
+### Inspect your data
+
+Discover the shape of any JSON file — fields, types, distinct values, ranges:
+
+```bash
+node mapping-builder.js --inspect test-data.json
+```
+
+Output:
+```
+Records analyzed: 3
+Fields discovered: 9
+
+─ FullName ─────────────────────────────────────────────────
+  type:         string
+  sample:       "Jane Doe"
+  distinct:     3 unique values
+  values:       "Jane Doe", "John Smith", "Bob Jones"
+
+─ TotalSpend ───────────────────────────────────────────────
+  type:         number
+  sample:       12500
+  range:        0 → 12500
+```
+
+For a machine-readable report, add `-o report.json`.
+
+### Auto-generate a mapping
+
+Generate a best-guess mapping with `--auto`:
+
+```bash
+node mapping-builder.js --data test-data.json --auto -o mapping.js
+```
+
+Rules applied automatically:
+- Field names are converted to `snake_case`
+- ISO-8601 date strings → `format: "date"`
+- Decimal numeric strings → `format: "number"`
+- Arrays of objects → `forEach` blocks
+- Everything else → simple `from: "sourceField"` rename
+
+Verify the generated mapping works:
+
+```bash
+node cli.js transform -d test-data.json -m mapping.js
+```
+
+Export as `.json` instead of `.js` (serializable, no `compute`):
+
+```bash
+node mapping-builder.js --data test-data.json --auto --format json -o mapping.json
+```
+
+### Programmatic API
+
+Import the builder in your own scripts to build mappings dynamically:
+
+```javascript
+import { inspect, buildMappingAuto, exportJs } from "./mapping-builder.js";
+import { readFileSync } from "node:fs";
+
+// 1. Inspect your data
+const data = JSON.parse(readFileSync("source.json", "utf-8"));
+const report = inspect(data);
+console.log(report.fields);   // metadata about every field
+
+// 2. Auto-generate a mapping
+const mapping = buildMappingAuto(report);
+
+// 3. Write it to disk
+exportJs(mapping, "generated-mapping.js");
+```
+
+Or build a mapping manually from field answers:
+
+```javascript
+import { buildMapping } from "./mapping-builder.js";
+
+const mapping = buildMapping(report, [
+  { sourceField: "FullName", targetField: "full_name", feature: "from" },
+  { sourceField: "StatusCode", targetField: "status", feature: "map", params: { mapObject: { A: "active", I: "inactive" } } },
+  { sourceField: "EmailAddr", targetField: "email", feature: "format", params: { format: "lowercase" } },
+  { sourceField: "CreatedDate", targetField: "created_at", feature: "format", params: { format: "date", outputFormat: "YYYY-MM-DD" } },
+]);
+```
+
+Supported features in `buildMapping()`: `from`, `rename`, `format`, `map`, `compute`, `if`, `forEach`, `aggregate`, `flatten`, `groupBy`, `distinct`, `filter`, `sortBy`, `template`, `coalesce`, `lookup`, `value`, `default`, `passthrough`, `schema`.
+
 ## File structure
 
 ```
 json-xslt/
 ├── transform.js               # Core engine (import this)
 ├── cli.js                     # CLI tool
+├── mapping-builder.js         # Mapping generator: inspect data and build mappings
+├── mapping-builder.test.js    # Unit tests for mapping-builder.js (run with `node --test`)
 ├── mapping-crm-example.js     # Example: CRM migration (JS)
 ├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
 ├── mapping-employee.js        # Example: composite conditions
@@ -895,4 +990,5 @@ json-xslt/
 - Join / zip two input files — combine two separately-shaped datasets by a shared key field, similar to a SQL join. Unlike the existing dictionary feature (which treats one file as a lookup table), a join would treat both files as equal-rank datasets. Key design questions: join type (inner / left / outer), field namespacing when both sides share a field name, and whether many-to-many expansion is in scope.
 
 **Tooling**
+- Interactive mapping builder wizard (`mapping-builder.js --data` without `--auto`)
 - TypeScript declarations
