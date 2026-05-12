@@ -387,13 +387,17 @@ export function buildMappingAuto(inspection, opts = {}) {
       continue;
     }
 
-    // Numeric string detection
+    // Numeric string detection — only auto-convert strings with decimal points
+    // to avoid treating zip codes, IDs, phone numbers as numeric.
     if (type === "string" && NUMERIC_STR_RE.test(String(meta.sample || ""))) {
-      answers.push({
-        sourceField, targetField, feature: "format",
-        params: { format: "number" },
-      });
-      continue;
+      const sampleStr = String(meta.sample || "");
+      if (sampleStr.includes(".")) {
+        answers.push({
+          sourceField, targetField, feature: "format",
+          params: { format: "number" },
+        });
+        continue;
+      }
     }
 
     // Mixed type → just passthrough rename
@@ -551,3 +555,200 @@ export function exportJson(mapping, filePath) {
   const content = JSON.stringify(mapping, null, 2) + "\n";
   writeFileSync(filePath, content, "utf-8");
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  CLI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function parseCliArgs(argv) {
+  const args = {
+    inspect: null,
+    data: null,
+    output: null,
+    format: "js",
+    auto: false,
+    help: false,
+  };
+
+  let i = 0;
+  while (i < argv.length) {
+    const a = argv[i];
+    switch (a) {
+      case "--inspect":
+        i++; args.inspect = argv[i]; break;
+      case "-d": case "--data":
+        i++; args.data = argv[i]; break;
+      case "-o": case "--output":
+        i++; args.output = argv[i]; break;
+      case "--format":
+        i++; args.format = argv[i]; break;
+      case "--auto":
+        args.auto = true; break;
+      case "-h": case "--help":
+        args.help = true; break;
+    }
+    i++;
+  }
+  return args;
+}
+
+function printHelp() {
+  console.log(`
+mapping-builder — Generate json-xslt mapping files from source JSON data
+
+USAGE
+  node mapping-builder.js --inspect <file>
+  node mapping-builder.js --data <file> [options]
+
+OPTIONS
+  --inspect <file>    Analyze source JSON and print field metadata report
+  -d, --data <file>   Input JSON file to build a mapping for
+  -o, --output <file> Output mapping file (default: stdout)
+  --format js|json    Output format — js supports compute(), json does not
+  --auto              Non-interactive: generate best-guess mapping
+  -h, --help          Show this help
+
+EXAMPLES
+  node mapping-builder.js --inspect test-data.json
+  node mapping-builder.js --data test-data.json --auto -o mapping.js
+  node mapping-builder.js --data test-data.json -o mapping.js --format json
+`);
+}
+
+function die(msg) {
+  console.error(`error: ${msg}`);
+  process.exit(1);
+}
+
+function loadDataFile(filePath) {
+  const resolved = resolve(filePath);
+  if (!existsSync(resolved)) {
+    die(`data file not found: ${resolved}`);
+  }
+
+  let data;
+  try {
+    data = JSON.parse(readFileSync(resolved, "utf-8"));
+  } catch (e) {
+    die(`invalid JSON in data file "${filePath}": ${e.message}`);
+  }
+
+  if (!Array.isArray(data)) {
+    die(`data file must contain a JSON array of objects: ${filePath}`);
+  }
+
+  if (data.length === 0) {
+    die(`data file contains an empty array: ${filePath}`);
+  }
+
+  return data;
+}
+
+function formatInspectReport(report) {
+  const lines = [];
+  lines.push(`Records analyzed: ${report.recordCount}`);
+  lines.push(`Fields discovered: ${Object.keys(report.fields).length}`);
+  lines.push("");
+
+  for (const [fieldName, meta] of Object.entries(report.fields)) {
+    lines.push(`─ ${fieldName} ────────────────────────────────────────────────`.slice(0, 60));
+    lines.push(`  type:         ${meta.type}`);
+
+    if (meta.sample !== undefined && meta.sample !== null) {
+      const sampleStr = typeof meta.sample === "string"
+        ? `"${meta.sample}"`
+        : JSON.stringify(meta.sample);
+      lines.push(`  sample:       ${sampleStr}`);
+    }
+
+    if (meta.distinctValues && meta.distinctValues.length > 0) {
+      lines.push(`  distinct:     ${meta.distinctValues.length} unique values`);
+      if (meta.distinctValues.length <= 10) {
+        const vals = meta.distinctValues.map(v =>
+          typeof v === "string" ? `"${v}"` : JSON.stringify(v)
+        ).join(", ");
+        lines.push(`  values:       ${vals}`);
+      }
+    }
+
+    if (meta.min !== undefined && meta.min !== null) {
+      lines.push(`  range:        ${meta.min} → ${meta.max}`);
+    }
+
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+// import { existsSync } from "node:fs";
+import { existsSync } from "node:fs";
+
+async function main() {
+  const args = parseCliArgs(process.argv.slice(2));
+
+  if (args.help) {
+    printHelp();
+    return;
+  }
+
+  // ── Inspect mode ──────────────────────────────────────────────────────
+  if (args.inspect) {
+    const data = loadDataFile(args.inspect);
+    const report = inspect(data);
+
+    const output = args.output
+      ? JSON.stringify(report, null, 2)
+      : formatInspectReport(report);
+
+    if (args.output) {
+      writeFileSync(resolve(args.output), output + "\n", "utf-8");
+      console.error(`Wrote inspection report to ${resolve(args.output)}`);
+    } else {
+      console.log(output);
+    }
+    return;
+  }
+
+  // ── Auto mode ───────────────────────────────────────────────────────
+  if (args.data && args.auto) {
+    const data = loadDataFile(args.data);
+    const report = inspect(data);
+    const mapping = buildMappingAuto(report);
+
+    if (args.format === "json") {
+      validateForFormat(mapping, "json");
+    }
+
+    if (args.output) {
+      if (args.format === "json") {
+        exportJson(mapping, resolve(args.output));
+      } else {
+        exportJs(mapping, resolve(args.output));
+      }
+      console.error(`Wrote ${args.format} mapping to ${resolve(args.output)}`);
+    } else {
+      if (args.format === "json") {
+        console.log(JSON.stringify(mapping, null, 2));
+      } else {
+        console.log("export default " + JSON.stringify(mapping, null, 2) + ";");
+      }
+    }
+    return;
+  }
+
+  // ── Interactive mode (not yet implemented) ─────────────────────────────
+  if (args.data) {
+    console.error("Interactive mapping builder is not yet implemented.");
+    console.error("Use --auto to generate a mapping non-interactively, or --inspect to analyze your data.");
+    process.exit(1);
+  }
+
+  printHelp();
+}
+
+main().catch(e => {
+  console.error(`fatal: ${e.message}`);
+  process.exit(1);
+});
+
