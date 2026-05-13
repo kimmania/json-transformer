@@ -160,7 +160,7 @@ export default {
 | Rule | Type | Description |
 |---|---|---|
 | `required` | boolean | Field must be present and non-null |
-| `type` | string | Expected type: `"string"`, `"number"`, `"boolean"`, `"array"`, `"object"` |
+| `type` | string | Expected type: `"string"`, `"number"`, `"boolean"`, `"array"`, `"object"`, `"date"` (strict ISO-8601) |
 | `min` / `max` | number | Numeric value range |
 | `minLength` / `maxLength` | number | String or array length range |
 | `pattern` | string | Regex the string value must match |
