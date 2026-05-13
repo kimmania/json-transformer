@@ -1,5 +1,5 @@
 /**
- * json-xslt — Lightweight declarative JSON transformation engine
+ * json-transformer — Lightweight declarative JSON transformation engine
  *
  * Usage:
  *   import { transform, prepareMapping } from './transform.js';
@@ -135,13 +135,50 @@ const MONTHS = [
   "July","August","September","October","November","December"
 ];
 
+const ISO_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/**
+ * Strictly validate that a value is a well-formed ISO-8601 date string.
+ * Invalid or ambiguous dates (e.g. 2025-02-30) are rejected.
+ */
+function isValidIsoDate(value) {
+  if (typeof value !== "string") return false;
+  const s = value.trim();
+  if (!ISO_RE.test(s)) return false;
+
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return false;
+
+  // Component verification via UTC round-trip (catches invalid dates like Feb 30)
+  const [year, month, day] = s.slice(0, 10).split("-").map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+
+  const utc = new Date(s.slice(0, 10) + "T00:00:00Z");
+  if (utc.getUTCFullYear() !== year || utc.getUTCMonth() + 1 !== month || utc.getUTCDate() !== day) {
+    return false;
+  }
+
+  // Validate time portion bounds when present
+  if (s.length > 10) {
+    const timeMatch = /T(\d{2}):(\d{2}):(\d{2})/.exec(s);
+    if (timeMatch) {
+      const hour = Number(timeMatch[1]);
+      const minute = Number(timeMatch[2]);
+      const second = Number(timeMatch[3]);
+      if (hour > 23 || minute > 59 || second > 59) return false;
+    }
+  }
+
+  return true;
+}
+
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function formatDate(dateValue, outputFormat) {
+  if (!isValidIsoDate(dateValue)) return dateValue;
   const d = new Date(dateValue);
-  if (isNaN(d.getTime())) return dateValue;
 
   const pad2 = (n) => String(n).padStart(2, "0");
   const YYYY = d.getFullYear();
@@ -190,7 +227,7 @@ function splitWords(str) {
 
 function applyFormat(value, fieldDef) {
   if (!fieldDef.format) return value;
-  if (value === undefined || value === null) return null;
+  if (value === undefined || value === null) return undefined;
   switch (fieldDef.format) {
     case "date":      return formatDate(value, fieldDef.outputFormat || "YYYY-MM-DD");
     case "lowercase": return String(value).toLowerCase();
@@ -251,6 +288,7 @@ function evaluateCondition(sourceRow, condition) {
   }
 
   const { field, op, value } = condition;
+  if (!field || typeof field !== "string") return false;
   const actual = field.includes(".")
     ? resolvePath(sourceRow, field)
     : sourceRow[field];
@@ -515,6 +553,11 @@ function transformAggregate(sourceRow, fieldDef, dictionaries) {
     default: return undefined;
   }
 
+  // Strip JavaScript floating-point noise (e.g. 112.49000000000001 → 112.49)
+  if (typeof result === "number" && (fieldDef.aggregate === "sum" || fieldDef.aggregate === "avg")) {
+    result = Math.round(result * 1e10) / 1e10;
+  }
+
   return applyFormat(result, fieldDef);
 }
 
@@ -584,9 +627,15 @@ function validateRow(sourceRow, schema, rowIndex) {
     if (missing) continue;
 
     if (rules.type) {
-      const actual = Array.isArray(value) ? "array" : typeof value;
-      if (actual !== rules.type) {
-        errors.push({ row: rowIndex, field, message: `expected type "${rules.type}", got "${actual}"` });
+      if (rules.type === "date") {
+        if (!isValidIsoDate(value)) {
+          errors.push({ row: rowIndex, field, message: `expected type "date" (valid ISO-8601), got "${value}"` });
+        }
+      } else {
+        const actual = Array.isArray(value) ? "array" : typeof value;
+        if (actual !== rules.type) {
+          errors.push({ row: rowIndex, field, message: `expected type "${rules.type}", got "${actual}"` });
+        }
       }
     }
 

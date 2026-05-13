@@ -1,0 +1,25 @@
+[
+  {
+    "id": "E001",
+    "name": "Alice Smith",
+    "age": 32,
+    "email": "alice@example.com",
+    "salary": 75000,
+    "department": "ENGINEERING"
+  },
+  {
+    "name": "B",
+    "age": -5,
+    "email": "not-an-email",
+    "salary": 120000,
+    "department": "MARKETING"
+  },
+  {
+    "id": "E003",
+    "name": "Carol White",
+    "age": 28,
+    "email": "carol@example.com",
+    "salary": -500,
+    "department": "ENGINEERING"
+  }
+]

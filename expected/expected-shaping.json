@@ -1,0 +1,615 @@
+[
+  {
+    "store_id": "STORE-001",
+    "store_name": "Downtown Branch",
+    "orders_by_status": {
+      "shipped": [
+        {
+          "order_id": "ORD-001",
+          "item_count": 3
+        },
+        {
+          "order_id": "ORD-003",
+          "item_count": 3
+        }
+      ],
+      "pending": [
+        {
+          "order_id": "ORD-002",
+          "item_count": 3
+        },
+        {
+          "order_id": "ORD-004",
+          "item_count": 2
+        }
+      ]
+    },
+    "order_ids_by_status": {
+      "shipped": [
+        {
+          "order_id": "ORD-001",
+          "status": "shipped",
+          "items": [
+            {
+              "sku": "SHIRT-BLU",
+              "category": "Apparel",
+              "qty": 2,
+              "price": 29.99
+            },
+            {
+              "sku": "HAT-RED",
+              "category": "Apparel",
+              "qty": 1,
+              "price": 19.99
+            },
+            {
+              "sku": "MUG-WHT",
+              "category": "Kitchenware",
+              "qty": 2,
+              "price": 12.99
+            }
+          ]
+        },
+        {
+          "order_id": "ORD-003",
+          "status": "shipped",
+          "items": [
+            {
+              "sku": "MUG-WHT",
+              "category": "Kitchenware",
+              "qty": 1,
+              "price": 12.99
+            },
+            {
+              "sku": "BOOK-PY",
+              "category": "Books",
+              "qty": 2,
+              "price": 44.99
+            },
+            {
+              "sku": "HAT-RED",
+              "category": "Apparel",
+              "qty": 1,
+              "price": 19.99
+            }
+          ]
+        }
+      ],
+      "pending": [
+        {
+          "order_id": "ORD-002",
+          "status": "pending",
+          "items": [
+            {
+              "sku": "BOOK-JS",
+              "category": "Books",
+              "qty": 1,
+              "price": 39.99
+            },
+            {
+              "sku": "SHIRT-BLU",
+              "category": "Apparel",
+              "qty": 1,
+              "price": 29.99
+            },
+            {
+              "sku": "PEN-SET",
+              "category": "Stationery",
+              "qty": 3,
+              "price": 8.99
+            }
+          ]
+        },
+        {
+          "order_id": "ORD-004",
+          "status": "pending",
+          "items": [
+            {
+              "sku": "DESK-MAT",
+              "category": "Stationery",
+              "qty": 1,
+              "price": 24.99
+            },
+            {
+              "sku": "MUG-BLK",
+              "category": "Kitchenware",
+              "qty": 2,
+              "price": 14.99
+            }
+          ]
+        }
+      ]
+    },
+    "all_line_items": [
+      {
+        "sku": "SHIRT-BLU",
+        "category": "Apparel",
+        "qty": 2,
+        "price": 29.99
+      },
+      {
+        "sku": "HAT-RED",
+        "category": "Apparel",
+        "qty": 1,
+        "price": 19.99
+      },
+      {
+        "sku": "MUG-WHT",
+        "category": "Kitchenware",
+        "qty": 2,
+        "price": 12.99
+      },
+      {
+        "sku": "BOOK-JS",
+        "category": "Books",
+        "qty": 1,
+        "price": 39.99
+      },
+      {
+        "sku": "SHIRT-BLU",
+        "category": "Apparel",
+        "qty": 1,
+        "price": 29.99
+      },
+      {
+        "sku": "PEN-SET",
+        "category": "Stationery",
+        "qty": 3,
+        "price": 8.99
+      },
+      {
+        "sku": "MUG-WHT",
+        "category": "Kitchenware",
+        "qty": 1,
+        "price": 12.99
+      },
+      {
+        "sku": "BOOK-PY",
+        "category": "Books",
+        "qty": 2,
+        "price": 44.99
+      },
+      {
+        "sku": "HAT-RED",
+        "category": "Apparel",
+        "qty": 1,
+        "price": 19.99
+      },
+      {
+        "sku": "DESK-MAT",
+        "category": "Stationery",
+        "qty": 1,
+        "price": 24.99
+      },
+      {
+        "sku": "MUG-BLK",
+        "category": "Kitchenware",
+        "qty": 2,
+        "price": 14.99
+      }
+    ],
+    "bulk_items": [
+      {
+        "sku": "SHIRT-BLU",
+        "qty": 2,
+        "price": 29.99
+      },
+      {
+        "sku": "MUG-WHT",
+        "qty": 2,
+        "price": 12.99
+      },
+      {
+        "sku": "PEN-SET",
+        "qty": 3,
+        "price": 8.99
+      },
+      {
+        "sku": "BOOK-PY",
+        "qty": 2,
+        "price": 44.99
+      },
+      {
+        "sku": "MUG-BLK",
+        "qty": 2,
+        "price": 14.99
+      }
+    ],
+    "unique_skus": [
+      {
+        "sku": "BOOK-JS",
+        "category": "Books",
+        "price": 39.99
+      },
+      {
+        "sku": "BOOK-PY",
+        "category": "Books",
+        "price": 44.99
+      },
+      {
+        "sku": "DESK-MAT",
+        "category": "Stationery",
+        "price": 24.99
+      },
+      {
+        "sku": "HAT-RED",
+        "category": "Apparel",
+        "price": 19.99
+      },
+      {
+        "sku": "MUG-BLK",
+        "category": "Kitchenware",
+        "price": 14.99
+      },
+      {
+        "sku": "MUG-WHT",
+        "category": "Kitchenware",
+        "price": 12.99
+      },
+      {
+        "sku": "PEN-SET",
+        "category": "Stationery",
+        "price": 8.99
+      },
+      {
+        "sku": "SHIRT-BLU",
+        "category": "Apparel",
+        "price": 29.99
+      }
+    ],
+    "total_line_items": 11,
+    "total_revenue": 380.83,
+    "items_by_category": {
+      "Apparel": [
+        {
+          "sku": "SHIRT-BLU",
+          "qty": 2,
+          "price": 29.99
+        },
+        {
+          "sku": "HAT-RED",
+          "qty": 1,
+          "price": 19.99
+        },
+        {
+          "sku": "SHIRT-BLU",
+          "qty": 1,
+          "price": 29.99
+        },
+        {
+          "sku": "HAT-RED",
+          "qty": 1,
+          "price": 19.99
+        }
+      ],
+      "Kitchenware": [
+        {
+          "sku": "MUG-WHT",
+          "qty": 2,
+          "price": 12.99
+        },
+        {
+          "sku": "MUG-WHT",
+          "qty": 1,
+          "price": 12.99
+        },
+        {
+          "sku": "MUG-BLK",
+          "qty": 2,
+          "price": 14.99
+        }
+      ],
+      "Books": [
+        {
+          "sku": "BOOK-JS",
+          "qty": 1,
+          "price": 39.99
+        },
+        {
+          "sku": "BOOK-PY",
+          "qty": 2,
+          "price": 44.99
+        }
+      ],
+      "Stationery": [
+        {
+          "sku": "PEN-SET",
+          "qty": 3,
+          "price": 8.99
+        },
+        {
+          "sku": "DESK-MAT",
+          "qty": 1,
+          "price": 24.99
+        }
+      ]
+    },
+    "bulk_items_by_category": {
+      "Apparel": [
+        {
+          "sku": "SHIRT-BLU",
+          "qty": 2
+        }
+      ],
+      "Kitchenware": [
+        {
+          "sku": "MUG-WHT",
+          "qty": 2
+        },
+        {
+          "sku": "MUG-BLK",
+          "qty": 2
+        }
+      ],
+      "Stationery": [
+        {
+          "sku": "PEN-SET",
+          "qty": 3
+        }
+      ],
+      "Books": [
+        {
+          "sku": "BOOK-PY",
+          "qty": 2
+        }
+      ]
+    }
+  },
+  {
+    "store_id": "STORE-002",
+    "store_name": "Uptown Branch",
+    "orders_by_status": {
+      "delivered": [
+        {
+          "order_id": "ORD-005",
+          "item_count": 2
+        },
+        {
+          "order_id": "ORD-007",
+          "item_count": 3
+        }
+      ],
+      "pending": [
+        {
+          "order_id": "ORD-006",
+          "item_count": 2
+        }
+      ]
+    },
+    "order_ids_by_status": {
+      "delivered": [
+        {
+          "order_id": "ORD-005",
+          "status": "delivered",
+          "items": [
+            {
+              "sku": "LAPTOP-PRO",
+              "category": "Electronics",
+              "qty": 1,
+              "price": 1299.99
+            },
+            {
+              "sku": "MOUSE-BLK",
+              "category": "Electronics",
+              "qty": 2,
+              "price": 49.99
+            }
+          ]
+        },
+        {
+          "order_id": "ORD-007",
+          "status": "delivered",
+          "items": [
+            {
+              "sku": "SHIRT-BLU",
+              "category": "Apparel",
+              "qty": 3,
+              "price": 29.99
+            },
+            {
+              "sku": "HAT-RED",
+              "category": "Apparel",
+              "qty": 2,
+              "price": 19.99
+            },
+            {
+              "sku": "MOUSE-BLK",
+              "category": "Electronics",
+              "qty": 1,
+              "price": 49.99
+            }
+          ]
+        }
+      ],
+      "pending": [
+        {
+          "order_id": "ORD-006",
+          "status": "pending",
+          "items": [
+            {
+              "sku": "PEN-SET",
+              "category": "Stationery",
+              "qty": 5,
+              "price": 8.99
+            },
+            {
+              "sku": "BOOK-JS",
+              "category": "Books",
+              "qty": 1,
+              "price": 39.99
+            }
+          ]
+        }
+      ]
+    },
+    "all_line_items": [
+      {
+        "sku": "LAPTOP-PRO",
+        "category": "Electronics",
+        "qty": 1,
+        "price": 1299.99
+      },
+      {
+        "sku": "MOUSE-BLK",
+        "category": "Electronics",
+        "qty": 2,
+        "price": 49.99
+      },
+      {
+        "sku": "PEN-SET",
+        "category": "Stationery",
+        "qty": 5,
+        "price": 8.99
+      },
+      {
+        "sku": "BOOK-JS",
+        "category": "Books",
+        "qty": 1,
+        "price": 39.99
+      },
+      {
+        "sku": "SHIRT-BLU",
+        "category": "Apparel",
+        "qty": 3,
+        "price": 29.99
+      },
+      {
+        "sku": "HAT-RED",
+        "category": "Apparel",
+        "qty": 2,
+        "price": 19.99
+      },
+      {
+        "sku": "MOUSE-BLK",
+        "category": "Electronics",
+        "qty": 1,
+        "price": 49.99
+      }
+    ],
+    "bulk_items": [
+      {
+        "sku": "MOUSE-BLK",
+        "qty": 2,
+        "price": 49.99
+      },
+      {
+        "sku": "PEN-SET",
+        "qty": 5,
+        "price": 8.99
+      },
+      {
+        "sku": "SHIRT-BLU",
+        "qty": 3,
+        "price": 29.99
+      },
+      {
+        "sku": "HAT-RED",
+        "qty": 2,
+        "price": 19.99
+      }
+    ],
+    "unique_skus": [
+      {
+        "sku": "BOOK-JS",
+        "category": "Books",
+        "price": 39.99
+      },
+      {
+        "sku": "HAT-RED",
+        "category": "Apparel",
+        "price": 19.99
+      },
+      {
+        "sku": "LAPTOP-PRO",
+        "category": "Electronics",
+        "price": 1299.99
+      },
+      {
+        "sku": "MOUSE-BLK",
+        "category": "Electronics",
+        "price": 49.99
+      },
+      {
+        "sku": "PEN-SET",
+        "category": "Stationery",
+        "price": 8.99
+      },
+      {
+        "sku": "SHIRT-BLU",
+        "category": "Apparel",
+        "price": 29.99
+      }
+    ],
+    "total_line_items": 7,
+    "total_revenue": 1664.85,
+    "items_by_category": {
+      "Electronics": [
+        {
+          "sku": "LAPTOP-PRO",
+          "qty": 1,
+          "price": 1299.99
+        },
+        {
+          "sku": "MOUSE-BLK",
+          "qty": 2,
+          "price": 49.99
+        },
+        {
+          "sku": "MOUSE-BLK",
+          "qty": 1,
+          "price": 49.99
+        }
+      ],
+      "Stationery": [
+        {
+          "sku": "PEN-SET",
+          "qty": 5,
+          "price": 8.99
+        }
+      ],
+      "Books": [
+        {
+          "sku": "BOOK-JS",
+          "qty": 1,
+          "price": 39.99
+        }
+      ],
+      "Apparel": [
+        {
+          "sku": "SHIRT-BLU",
+          "qty": 3,
+          "price": 29.99
+        },
+        {
+          "sku": "HAT-RED",
+          "qty": 2,
+          "price": 19.99
+        }
+      ]
+    },
+    "bulk_items_by_category": {
+      "Electronics": [
+        {
+          "sku": "MOUSE-BLK",
+          "qty": 2
+        }
+      ],
+      "Stationery": [
+        {
+          "sku": "PEN-SET",
+          "qty": 5
+        }
+      ],
+      "Apparel": [
+        {
+          "sku": "SHIRT-BLU",
+          "qty": 3
+        },
+        {
+          "sku": "HAT-RED",
+          "qty": 2
+        }
+      ]
+    }
+  }
+]

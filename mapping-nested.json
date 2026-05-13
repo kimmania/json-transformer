@@ -2,27 +2,23 @@
   "id": "nested-order-test",
   "fields": {
     "id": { "from": "order_id" },
-    "customer.name": { "from": "customer.FullName", format: "uppercase" },
-    "customer.email": { "from": "customer.Email", format: "lowercase" },
+    "customer.name": { "from": "customer.FullName", "format": "uppercase" },
+    "customer.email": { "from": "customer.Email", "format": "lowercase" },
 
     "items": {
       "forEach": "LineItems",
       "fields": {
         "product_code": { "from": "SKU" },
-        "quantity": { "from": "Qty", format: "number" },
-        "unit_price": { "from": "Price", format: "number" },
-        "line_total": { 
-          "compute": (price, qty) => parseFloat(price) * qty,
-          "from": ["Price", "Qty"]
-        }
+        "quantity": { "from": "Qty", "format": "number" },
+        "unit_price": { "from": "Price", "format": "number" }
       }
     },
 
     "shipping": {
       "fields": {
-        "city": { "from": "ship_city", format: "uppercase" },
+        "city": { "from": "ship_city", "format": "uppercase" },
         "state": { "from": "ship_state" },
-        "zip": { "from": "ship_zip", map: { "10001": "10xxx" } }
+        "zip": { "from": "ship_zip", "map": { "10001": "10xxx" } }
       }
     },
 
@@ -30,7 +26,7 @@
       "from": "grand_total",
       "format": "number"
     },
-    
+
     "ship_date": {
       "from": "date_shipped",
       "format": "date",

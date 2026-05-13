@@ -1,10 +1,10 @@
-# json-xslt
+# json-transformer
 
 A lightweight, **declarative JSON transformation engine** inspired by XSLT. Define mapping rules as plain JavaScript objects stored in reusable `.js` files, then pass them to a tiny `transform()` function.
 
 ## Why?
 
-Sometimes you need to morph API responses, migrate data between schemas, or normalize external feeds — and a heavy ETL tool is overkill. `json-xslt` gives you a **stylesheet-like mapping definition** that is:
+Sometimes you need to morph API responses, migrate data between schemas, or normalize external feeds — and a heavy ETL tool is overkill. `json-transformer` gives you a **stylesheet-like mapping definition** that is:
 
 - **Readable** — each target field describes exactly where it comes from
 - **Reusable** — export mappings as modules, share them, compose them
@@ -14,9 +14,46 @@ Sometimes you need to morph API responses, migrate data between schemas, or norm
 
 ```bash
 # No dependencies — just copy the files
-git clone <this-repo>
-cd json-xslt
+git clone https://github.com/kimmania/json-transformer.git
+cd json-transformer
 ```
+
+## Security note
+
+`.js` mapping files are loaded via dynamic `import()` and can contain arbitrary
+JavaScript code (including `compute()` functions). Only run mapping files from
+trusted sources. For untrusted mappings, use the `.json` format, which accepts
+only declarative rules.
+
+## Table of contents
+
+- [Why?](#why)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Examples](#examples)
+- [Mapping definition](#mapping-definition)
+  - [Schema validation](#schema-validation-schema)
+  - [Passthrough](#passthrough)
+  - [Field definition options](#field-definition-options)
+  - [Dot-paths](#dot-paths-nested-source-and-target)
+  - [Nested sub-mappings](#nested-sub-mappings-fields-blocks)
+  - [Array iteration (`forEach`)](#array-iteration-foreach)
+  - [Aggregation](#aggregation-aggregate)
+  - [Template strings](#template-strings-template)
+  - [Coalesce](#coalesce-coalesce)
+  - [Dictionaries](#dictionaries)
+  - [Conditions](#conditions-if--then--else)
+- [API](#api)
+- [CLI](#cli)
+  - [CSV input](#csv-input)
+- [Mapping builder (`mapping-builder.js`)](#mapping-builder-mapping-builderjs)
+  - [Inspect your data](#inspect-your-data)
+  - [Interactive wizard](#interactive-wizard)
+  - [Auto-generate a mapping](#auto-generate-a-mapping)
+  - [Programmatic API](#programmatic-api)
+- [File structure](#file-structure)
+- [Limitations](#limitations)
+- [Future ideas](#future-ideas)
 
 ## Quick start
 
@@ -46,6 +83,40 @@ import { transform } from "./transform.js";
 import myMapping from "./my-mapping.js";
 
 const output = transform(inputArray, myMapping);
+```
+
+## Examples
+
+Working example files are included for every major feature. Each pair below links a **data file** to its **mapping file** and shows the command to run it. Expected outputs are checked into `expected/` and exercised by `transform.test.js`.
+
+| Data | Mapping | Expected | What it demonstrates |
+|---|---|---|---|
+| `test-data.json` | `mapping-crm-example.js` | `expected-crm.json` | Simple rename, date formatting, value mapping, `if`/`then`/`else`, `compute` |
+| `test-nested.json` | `mapping-nested.js` | `expected-nested.js.json` | Nested objects, `forEach` arrays, `compute` inside `forEach`, dot-paths |
+| `test-nested.json` | `mapping-nested.json` | `expected-nested.json` | Same nested transform as above, but as a pure JSON mapping (no `compute`) |
+| `test-order-summary.json` | `mapping-order-summary.js` | `expected-order-summary.json` | `aggregate` (`sum`, `count`, `min`, `max`, `avg`), `filter`, `sortBy` |
+| `test-shaping.json` | `mapping-shaping.js` | `expected-shaping.json` | `flatten`, `groupBy`, `distinct`, nested `forEach` |
+| `test-data-cleaning.json` | `mapping-data-cleaning.js` | `expected-data-cleaning.json` | `passthrough`, `template`, `coalesce`, casing, `round`, `split`, `join`, `truncate`, `replace` |
+| `test-timesheet.json` | `mapping-timesheet.js` | `expected-timesheet.json` | Dictionary lookups: `$file: "./dictionaries/employees.json"` (5 records, keyed by `employee_id`), `$file: "./dictionaries/departments.json"` (5 records, keyed by `code`), inline `statusMap`, multi-hop `compute()` for manager name, date formatting |
+| `test-employees.csv` | `mapping-employee.js` | `expected-employee.json` | CSV input, composite `and`/`or`/`not` conditions |
+| `test-invalid.json` | `mapping-validated.js` | `expected-validated.json` | Schema validation — transforms data and reports validation errors to stderr |
+
+Run any example:
+
+```bash
+node cli.js transform -d test-data.json -m mapping-crm-example.js
+```
+
+Compare to the checked-in expected output:
+
+```bash
+diff <(node cli.js transform -d test-data.json -m mapping-crm-example.js) expected/expected-crm.json
+```
+
+Run all example tests:
+
+```bash
+node --test transform.test.js
 ```
 
 ## Mapping definition
@@ -89,7 +160,7 @@ export default {
 | Rule | Type | Description |
 |---|---|---|
 | `required` | boolean | Field must be present and non-null |
-| `type` | string | Expected type: `"string"`, `"number"`, `"boolean"`, `"array"`, `"object"` |
+| `type` | string | Expected type: `"string"`, `"number"`, `"boolean"`, `"array"`, `"object"`, `"date"` (strict ISO-8601) |
 | `min` / `max` | number | Numeric value range |
 | `minLength` / `maxLength` | number | String or array length range |
 | `pattern` | string | Regex the string value must match |
@@ -834,6 +905,8 @@ Mapping formats:
 
 The CLI accepts `.csv` files as input. The first row is treated as the header and becomes the field names for each record. Quoted fields, embedded commas, and embedded newlines are all handled correctly.
 
+**Line ending normalization:** inside quoted fields, `\r\n` (CRLF) and lone `\r` (CR) are normalized to a single `\n` (LF). This ensures consistent behavior regardless of how the CSV was generated.
+
 **Important:** all CSV values arrive as strings — use `format: "number"` (or `format: "boolean"`) in your field definitions to coerce them when needed:
 
 ```javascript
@@ -843,18 +916,155 @@ active: { from: "IsActive", format: "boolean" },
 
 Empty cells (`,,`) become empty strings `""` rather than `null` or `undefined`. This means an `exists` condition will return `true` for an empty cell — use `{ field: "Phone", op: "truthy" }` instead if you want to treat blank cells as absent.
 
+> **Production recommendation:** the built-in CSV parser is lightweight and loads the entire file into memory. For very large files (hundreds of MB or more) or complex CSV edge cases (e.g. custom delimiters, multi-character escape sequences, or strict RFC 4180 conformance requirements), use a dedicated streaming parser such as [`csv-parse`](https://csv.js.org/parse/) or [`papaparse`](https://www.papaparse.com/) and pipe the parsed records into `transform()` programmatically rather than via the CLI.
+
+## Mapping builder (`mapping-builder.js`)
+
+A companion tool that inspects source JSON and generates mapping files automatically. Use it to bootstrap a mapping from sample data instead of writing one by hand.
+
+### Inspect your data
+
+Discover the shape of any JSON file — fields, types, distinct values, ranges:
+
+```bash
+node mapping-builder.js --inspect test-data.json
+```
+
+Output:
+```
+Records analyzed: 3
+Fields discovered: 9
+
+─ FullName ─────────────────────────────────────────────────
+  type:         string
+  sample:       "Jane Doe"
+  distinct:     3 unique values
+  values:       "Jane Doe", "John Smith", "Bob Jones"
+
+─ TotalSpend ───────────────────────────────────────────────
+  type:         number
+  sample:       12500
+  range:        0 → 12500
+```
+
+For a machine-readable report, add `-o report.json`.
+
+### Interactive wizard
+
+Run without `--auto` to launch a guided field-by-field prompt:
+
+```bash
+node mapping-builder.js --data test-data.json -o mapping.js
+```
+
+The wizard walks you through each discovered field with smart defaults:
+- Target field names pre-filled as `snake_case`
+- Date strings pre-selected for `format: "date"`
+- Decimal numeric strings pre-selected for `format: "number"`
+- Arrays launch a **recursive sub-wizard** for their sub-fields
+
+At each field you can:
+- **[a]** accept the default
+- **[c]** customize: pick from rename, format, map, template, if/then/else, coalesce, value, default, forEach, compute
+- **[s]** skip the field
+- **[b]** go back to the previous field
+- **[p]** preview the mapping built so far
+
+On the preview screen:
+- **[w]** write to file
+- **[e]** edit a specific field
+- **[t]** test-transform the first 3 records to verify output
+- **[q]** quit without saving
+
+Non-TTY environments (piped stdin, CI) automatically fall back to `--auto` mode.
+
+### Auto-generate a mapping
+
+Generate a best-guess mapping with `--auto`:
+
+```bash
+node mapping-builder.js --data test-data.json --auto -o mapping.js
+```
+
+Rules applied automatically:
+- Field names are converted to `snake_case`
+- ISO-8601 date strings → `format: "date"`
+- Decimal numeric strings → `format: "number"`
+- Arrays of objects → `forEach` blocks
+- Everything else → simple `from: "sourceField"` rename
+
+Verify the generated mapping works:
+
+```bash
+node cli.js transform -d test-data.json -m mapping.js
+```
+
+Export as `.json` instead of `.js` (serializable, no `compute`):
+
+```bash
+node mapping-builder.js --data test-data.json --auto --format json -o mapping.json
+```
+
+### Programmatic API
+
+Import the builder in your own scripts to build mappings dynamically:
+
+```javascript
+import { inspect, buildMappingAuto, exportJs } from "./mapping-builder.js";
+import { readFileSync } from "node:fs";
+
+// 1. Inspect your data
+const data = JSON.parse(readFileSync("source.json", "utf-8"));
+const report = inspect(data);
+console.log(report.fields);   // metadata about every field
+
+// 2. Auto-generate a mapping
+const mapping = buildMappingAuto(report);
+
+// 3. Write it to disk
+exportJs(mapping, "generated-mapping.js");
+```
+
+Or build a mapping manually from field answers:
+
+```javascript
+import { buildMapping } from "./mapping-builder.js";
+
+const mapping = buildMapping(report, [
+  { sourceField: "FullName", targetField: "full_name", feature: "from" },
+  { sourceField: "StatusCode", targetField: "status", feature: "map", params: { mapObject: { A: "active", I: "inactive" } } },
+  { sourceField: "EmailAddr", targetField: "email", feature: "format", params: { format: "lowercase" } },
+  { sourceField: "CreatedDate", targetField: "created_at", feature: "format", params: { format: "date", outputFormat: "YYYY-MM-DD" } },
+]);
+```
+
+Supported features in `buildMapping()`: `from`, `rename`, `format`, `map`, `compute`, `if`, `forEach`, `aggregate`, `flatten`, `groupBy`, `distinct`, `filter`, `sortBy`, `template`, `coalesce`, `lookup`, `value`, `default`, `passthrough`, `schema`.
+
 ## File structure
 
 ```
-json-xslt/
+json-transformer/
 ├── transform.js               # Core engine (import this)
 ├── cli.js                     # CLI tool
+├── transform.test.js           # End-to-end tests: runs every example mapping against expected output
+├── mapping-builder.js         # Mapping generator: inspect data and build mappings
+├── mapping-builder.test.js    # Unit tests for mapping-builder.js (run with `node --test`)
+├── expected/                  # Checked-in expected output for every example mapping
+│   ├── expected-crm.json
+│   ├── expected-nested.js.json
+│   ├── expected-nested.json
+│   ├── expected-order-summary.json
+│   ├── expected-shaping.json
+│   ├── expected-data-cleaning.json
+│   ├── expected-timesheet.json
+│   ├── expected-employee.json
+│   └── expected-validated.json
 ├── mapping-crm-example.js     # Example: CRM migration (JS)
 ├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
 ├── mapping-employee.js        # Example: composite conditions
 ├── mapping-nested.js          # Example: nested objects & forEach
+├── mapping-nested.json        # Same mapping, pure JSON (no compute)
 ├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
-├── mapping-distinct.js        # Example: distinct deduplication (with filter, sortBy, aggregate)
 ├── mapping-shaping.js         # Example: flatten and groupBy (with filter, distinct, aggregate)
 ├── test-shaping.json          # Sample store/order/item data (for shaping demo)
 ├── mapping-validated.js       # Example: schema validation (all rule types)
@@ -865,7 +1075,6 @@ json-xslt/
 ├── test-data.json             # Sample flat data
 ├── test-nested.json           # Sample nested data
 ├── test-order-summary.json    # Sample order data (for aggregation/filter/sort demo)
-├── test-distinct.json         # Sample order data with duplicate line items (for distinct demo)
 ├── test-invalid.json          # Sample data with intentional errors (for validation demo)
 ├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
 ├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
@@ -873,6 +1082,11 @@ json-xslt/
 ├── dictionaries/
 │   ├── employees.json         # Employee reference data (indexed by employee_id)
 │   └── departments.json       # Department reference data (indexed by code)
+├── docs/                      # Design analyses and RFCs
+│   ├── cross-row-computations.md
+│   └── streaming-support.md
+├── PLAN.md                    # Implementation plan for the interactive wizard
+├── AGENTS.md                  # Contributor guide / AI assistant context
 └── README.md
 ```
 

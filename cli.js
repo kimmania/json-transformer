@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * json-xslt CLI
+ * json-transformer CLI
  *
  * Usage:
  *   node cli.js transform --data input.json --mapping mapping.js
@@ -16,6 +16,7 @@
  */
 
 import { transform, validate, prepareMapping } from "./transform.js";
+import { inspect, formatInspectReport } from "./mapping-builder.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -26,15 +27,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function printHelp() {
   console.log(`
-json-xslt — Declarative JSON transformation CLI
+json-transformer — Declarative JSON transformation CLI
 
 USAGE
   node cli.js transform --data <file> --mapping <file> [options]
+  node cli.js --inspect <file> [options]
 
 OPTIONS
   -d, --data      <file>   Input data file (.json array or .csv); repeat to merge multiple files
   -m, --mapping   <file>   Mapping definition (.js or .json)
   -o, --output    <file>   Output file (default: stdout)
+  -i, --inspect   <file>   Inspect a data file and print a field analysis report
   --compact                Minified JSON output (no whitespace)
   -h, --help               Show this help
 
@@ -44,10 +47,24 @@ EXAMPLES
   node cli.js transform -d jan.json -d feb.json -d mar.json -m map.js
   node cli.js transform -d src.json -m map.json -o out.json
   node cli.js transform -d data.json -m map.js | jq '.[0]'
+  node cli.js --inspect data.json
+  node cli.js -i data.json -o inspection.json
 
 MAPPING FORMATS
   .json  Pure declarative mapping (all features except compute functions)
   .js    Full mapping with compute(), dynamic import support
+
+SECURITY NOTE
+  .js mapping files are loaded via dynamic import and can execute arbitrary
+  code. Only run mapping files from trusted sources.
+
+BUILDING MAPPINGS
+  Need help creating a mapping? Use mapping-builder.js to inspect your
+  data and generate a mapping interactively or automatically:
+
+    node mapping-builder.js --inspect <file>   # Analyze data structure
+    node mapping-builder.js --data <file>       # Interactive wizard
+    node mapping-builder.js --data <file> --auto # Auto-generate
 `);
 }
 
@@ -60,9 +77,10 @@ function die(msg) {
 
 function parseArgs(argv) {
   const args = {
-    data: [],
+    data: null,
     mapping: null,
     output: null,
+    inspect: null,
     pretty: true,
     help: false,
   };
@@ -72,13 +90,15 @@ function parseArgs(argv) {
     const a = argv[i];
     switch (a) {
       case "-d": case "--data":
-        i++; args.data.push(argv[i]); break;
+        i++; if (!args.data) args.data = []; args.data.push(argv[i]); break;
       case "-m": case "--mapping":
         i++; args.mapping = argv[i]; break;
       case "-o": case "--output":
         i++; args.output = argv[i]; break;
       case "--compact":
         args.pretty = false; break;
+      case "-i": case "--inspect":
+        i++; args.inspect = argv[i]; break;
       case "-h": case "--help":
         args.help = true; break;
       default:
@@ -96,6 +116,13 @@ function parseArgs(argv) {
 /**
  * Parse a CSV string into an array of objects using the header row as keys.
  * Handles quoted fields (including commas and newlines inside quotes).
+ *
+ * Line endings inside quoted fields are normalized to '\n' so that a CRLF
+ * sequence (\r\n) or a lone CR (\r) becomes a single LF (\n). Unquoted
+ * rows are split on the original line terminators.
+ *
+ * This is a lightweight built-in parser. For large or production CSV files,
+ * consider a dedicated streaming parser instead (see README).
  */
 function parseCsv(text) {
   const rows = [];
@@ -113,6 +140,11 @@ function parseCsv(text) {
         i++;
       } else if (ch === '"') {
         inQuotes = false;
+      } else if (ch === '\r' && next === '\n') {
+        field += '\n';
+        i++;
+      } else if (ch === '\r' || ch === '\n') {
+        field += '\n';
       } else {
         field += ch;
       }
@@ -185,12 +217,51 @@ async function main(rawArgs) {
   const rest = rawArgs.slice(2);
   const args = parseArgs(rest);
 
-  if (args.help || (args.data.length === 0 && !args.mapping)) {
+  if (args.help || (!args.data && !args.mapping && !args.inspect)) {
     printHelp();
     return;
   }
 
-  if (args.data.length === 0) die("missing --data parameter");
+  // ── Inspect mode ────────────────────────────────────────────────────────
+  if (args.inspect) {
+    const dataPath = path.resolve(args.inspect);
+    if (!fs.existsSync(dataPath)) {
+      die(`data file not found: ${dataPath}`);
+    }
+    let data;
+    if (args.inspect.endsWith(".csv")) {
+      try {
+        data = parseCsv(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`failed to parse CSV file "${args.inspect}": ${e.message}`);
+      }
+    } else {
+      try {
+        data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`invalid JSON in data file "${args.inspect}": ${e.message}`);
+      }
+      if (!Array.isArray(data)) {
+        die(`data file must contain a JSON array of objects: ${args.inspect}`);
+      }
+    }
+
+    const report = inspect(data);
+    const output = args.output
+      ? JSON.stringify(report, null, 2)
+      : formatInspectReport(report);
+
+    if (args.output) {
+      fs.writeFileSync(path.resolve(args.output), output + "\n", "utf-8");
+      console.error(`Wrote inspection report to ${path.resolve(args.output)}`);
+    } else {
+      process.stdout.write(output + "\n");
+    }
+    return;
+  }
+
+  // ── Transform mode ─────────────────────────────────────────────────────
+  if (!args.data || args.data.length === 0) die("missing --data parameter");
   if (!args.mapping) die("missing --mapping parameter");
 
   // Load and merge data files
@@ -263,3 +334,5 @@ main(process.argv).catch(e => {
   console.error(`fatal: ${e.message}`);
   process.exit(1);
 });
+
+export { parseCsv };

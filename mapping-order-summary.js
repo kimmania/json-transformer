@@ -33,7 +33,7 @@ export default {
       forEach: "items",
       aggregate: "sum",
       from: ["qty", "unit_price"],
-      compute: (qty, price) => qty * price,
+      compute: (qty, price) => Math.round(qty * price * 100) / 100,
     },
 
     // ── sum + compute: apply a discount per item before summing ──────
@@ -42,7 +42,7 @@ export default {
       forEach: "items",
       aggregate: "sum",
       from: ["qty", "unit_price", "discount_pct"],
-      compute: (qty, price, discountPct) => qty * price * (1 - discountPct / 100),
+      compute: (qty, price, discountPct) => Math.round(qty * price * (1 - discountPct / 100) * 100) / 100,
     },
 
     // ── max: raw field — highest unit price across all items ─────────
@@ -57,7 +57,7 @@ export default {
       forEach: "items",
       aggregate: "max",
       from: ["qty", "unit_price"],
-      compute: (qty, price) => qty * price,
+      compute: (qty, price) => Math.round(qty * price * 100) / 100,
     },
 
     // ── min: raw field — lowest unit price across all items ──────────
@@ -80,7 +80,7 @@ export default {
       filter: { field: "discount_pct", op: "gt", value: 0 },
       aggregate: "sum",
       from: ["qty", "unit_price", "discount_pct"],
-      compute: (qty, price, discountPct) => qty * price * (discountPct / 100),
+      compute: (qty, price, discountPct) => Math.round(qty * price * (discountPct / 100) * 100) / 100,
     },
 
     // ── filter + forEach: only items ordered in quantity > 1 ─────────
@@ -92,7 +92,7 @@ export default {
         qty: { from: "qty" },
         line_total: {
           from: ["qty", "unit_price"],
-          compute: (qty, price) => qty * price,
+          compute: (qty, price) => Math.round(qty * price * 100) / 100,
         },
       },
     },
