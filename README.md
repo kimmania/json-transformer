@@ -18,6 +18,35 @@ git clone https://github.com/kimmania/json-transformer.git
 cd json-transformer
 ```
 
+## Table of contents
+
+- [Why?](#why)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Mapping definition](#mapping-definition)
+  - [Schema validation](#schema-validation-schema)
+  - [Passthrough](#passthrough)
+  - [Field definition options](#field-definition-options)
+  - [Dot-paths](#dot-paths-nested-source-and-target)
+  - [Nested sub-mappings](#nested-sub-mappings-fields-blocks)
+  - [Array iteration (`forEach`)](#array-iteration-foreach)
+  - [Aggregation](#aggregation-aggregate)
+  - [Template strings](#template-strings-template)
+  - [Coalesce](#coalesce-coalesce)
+  - [Dictionaries](#dictionaries)
+  - [Conditions](#conditions-if--then--else)
+- [API](#api)
+- [CLI](#cli)
+  - [CSV input](#csv-input)
+- [Mapping builder (`mapping-builder.js`)](#mapping-builder-mapping-builderjs)
+  - [Inspect your data](#inspect-your-data)
+  - [Interactive wizard](#interactive-wizard)
+  - [Auto-generate a mapping](#auto-generate-a-mapping)
+  - [Programmatic API](#programmatic-api)
+- [File structure](#file-structure)
+- [Limitations](#limitations)
+- [Future ideas](#future-ideas)
+
 ## Quick start
 
 ```javascript
@@ -977,8 +1006,8 @@ json-transformer/
 ├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
 ├── mapping-employee.js        # Example: composite conditions
 ├── mapping-nested.js          # Example: nested objects & forEach
+├── mapping-nested.json        # Same mapping, pure JSON (no compute)
 ├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
-├── mapping-distinct.js        # Example: distinct deduplication (with filter, sortBy, aggregate)
 ├── mapping-shaping.js         # Example: flatten and groupBy (with filter, distinct, aggregate)
 ├── test-shaping.json          # Sample store/order/item data (for shaping demo)
 ├── mapping-validated.js       # Example: schema validation (all rule types)
@@ -989,7 +1018,6 @@ json-transformer/
 ├── test-data.json             # Sample flat data
 ├── test-nested.json           # Sample nested data
 ├── test-order-summary.json    # Sample order data (for aggregation/filter/sort demo)
-├── test-distinct.json         # Sample order data with duplicate line items (for distinct demo)
 ├── test-invalid.json          # Sample data with intentional errors (for validation demo)
 ├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
 ├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
@@ -997,6 +1025,11 @@ json-transformer/
 ├── dictionaries/
 │   ├── employees.json         # Employee reference data (indexed by employee_id)
 │   └── departments.json       # Department reference data (indexed by code)
+├── docs/                      # Design analyses and RFCs
+│   ├── cross-row-computations.md
+│   └── streaming-support.md
+├── PLAN.md                    # Implementation plan for the interactive wizard
+├── AGENTS.md                  # Contributor guide / AI assistant context
 └── README.md
 ```
 
