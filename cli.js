@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * json-xslt CLI
+ * json-transformer CLI
  *
  * Usage:
  *   node cli.js transform --data input.json --mapping mapping.js
@@ -27,7 +27,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function printHelp() {
   console.log(`
-json-xslt — Declarative JSON transformation CLI
+json-transformer — Declarative JSON transformation CLI
 
 USAGE
   node cli.js transform --data <file> --mapping <file> [options]
@@ -53,6 +53,10 @@ EXAMPLES
 MAPPING FORMATS
   .json  Pure declarative mapping (all features except compute functions)
   .js    Full mapping with compute(), dynamic import support
+
+SECURITY NOTE
+  .js mapping files are loaded via dynamic import and can execute arbitrary
+  code. Only run mapping files from trusted sources.
 
 BUILDING MAPPINGS
   Need help creating a mapping? Use mapping-builder.js to inspect your

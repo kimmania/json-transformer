@@ -1,10 +1,10 @@
-# json-xslt
+# json-transformer
 
 A lightweight, **declarative JSON transformation engine** inspired by XSLT. Define mapping rules as plain JavaScript objects stored in reusable `.js` files, then pass them to a tiny `transform()` function.
 
 ## Why?
 
-Sometimes you need to morph API responses, migrate data between schemas, or normalize external feeds — and a heavy ETL tool is overkill. `json-xslt` gives you a **stylesheet-like mapping definition** that is:
+Sometimes you need to morph API responses, migrate data between schemas, or normalize external feeds — and a heavy ETL tool is overkill. `json-transformer` gives you a **stylesheet-like mapping definition** that is:
 
 - **Readable** — each target field describes exactly where it comes from
 - **Reusable** — export mappings as modules, share them, compose them
@@ -17,6 +17,13 @@ Sometimes you need to morph API responses, migrate data between schemas, or norm
 git clone https://github.com/kimmania/json-transformer.git
 cd json-transformer
 ```
+
+## Security note
+
+`.js` mapping files are loaded via dynamic `import()` and can contain arbitrary
+JavaScript code (including `compute()` functions). Only run mapping files from
+trusted sources. For untrusted mappings, use the `.json` format, which accepts
+only declarative rules.
 
 ## Table of contents
 

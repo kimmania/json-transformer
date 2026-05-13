@@ -60,10 +60,7 @@
   },
   {
     "id": "ORD-1003",
-    "customer": {
-      "name": null,
-      "email": null
-    },
+    "customer": {},
     "items": [],
     "shipping": {
       "city": "CHI",
@@ -71,7 +68,6 @@
       "zip": "60601"
     },
     "order_total": 0,
-    "ship_date": null,
     "priority": "standard",
     "meta": "transformed"
   }

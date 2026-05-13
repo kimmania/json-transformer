@@ -5,7 +5,7 @@
 ## Project Identity
 
 - **Repo name**: `json-transformer` (GitHub: `kimmania/json-transformer`)
-- **Engine name**: `json-xslt` — the declarative transformation engine inside the repo
+- **Engine name**: `json-transformer` — the declarative transformation engine inside the repo
 - **Runtime**: Node.js 18+, ESM only (`"type": "module"` implied by `.js` extensions), zero npm dependencies
 - **Philosophy**: Every feature must work without adding external packages. Use built-in Node.js APIs only.
 

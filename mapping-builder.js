@@ -1,7 +1,7 @@
 /**
  * mapping-builder.js — Phase 3: buildMapping() core
  *
- * Converts inspection metadata + user answers into valid json-xslt mapping objects.
+ * Converts inspection metadata + user answers into valid json-transformer mapping objects.
  *
  * Public API:
  *   buildMapping(inspection, answers, opts) → mapping object
@@ -39,7 +39,7 @@
  *   "schema"      → mapping-level schema block
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -965,6 +965,17 @@ async function promptComputeParams(rl, state) {
     ];
     const op = await askChoice(rl, "Operator:", ops, 0);
     const b = await ask(rl, "Second field");
+
+    // Sanitize field names to prevent code injection via new Function()
+    const SAFE_FIELD_RE = /^[a-zA-Z0-9_.]+$/;
+    if (!SAFE_FIELD_RE.test(a) || !SAFE_FIELD_RE.test(b)) {
+      throw new Error("Invalid field name. Only alphanumeric, underscore, and dot characters are allowed.");
+    }
+    const SAFE_OPS = new Set(["+", "-", "*", "/"]);
+    if (!SAFE_OPS.has(op)) {
+      throw new Error(`Invalid operator "${op}". Only +, -, *, / are allowed.`);
+    }
+
     const fnBody = `return ${a} ${op} ${b}`;
     // eslint-disable-next-line no-new-func
     const fn = new Function(a, b, fnBody);
@@ -1195,7 +1206,7 @@ function parseCliArgs(argv) {
 
 function printHelp() {
   console.log(`
-mapping-builder — Generate json-xslt mapping files from source JSON data
+mapping-builder — Generate json-transformer mapping files from source JSON data
 
 USAGE
   node mapping-builder.js --inspect <file>
@@ -1281,9 +1292,6 @@ export function formatInspectReport(report) {
 
   return lines.join("\n");
 }
-
-// import { existsSync } from "node:fs";
-import { existsSync } from "node:fs";
 
 async function main() {
   const args = parseCliArgs(process.argv.slice(2));

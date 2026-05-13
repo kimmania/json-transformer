@@ -1,5 +1,5 @@
 /**
- * json-xslt — Lightweight declarative JSON transformation engine
+ * json-transformer — Lightweight declarative JSON transformation engine
  *
  * Usage:
  *   import { transform, prepareMapping } from './transform.js';
@@ -190,7 +190,7 @@ function splitWords(str) {
 
 function applyFormat(value, fieldDef) {
   if (!fieldDef.format) return value;
-  if (value === undefined || value === null) return null;
+  if (value === undefined || value === null) return undefined;
   switch (fieldDef.format) {
     case "date":      return formatDate(value, fieldDef.outputFormat || "YYYY-MM-DD");
     case "lowercase": return String(value).toLowerCase();
@@ -251,6 +251,7 @@ function evaluateCondition(sourceRow, condition) {
   }
 
   const { field, op, value } = condition;
+  if (!field || typeof field !== "string") return false;
   const actual = field.includes(".")
     ? resolvePath(sourceRow, field)
     : sourceRow[field];

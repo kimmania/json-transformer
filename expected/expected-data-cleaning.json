@@ -67,7 +67,6 @@
     ],
     "keyword_str": "import | export",
     "short_desc": "Short desc",
-    "phone_digits": null,
     "api_key": "data_export_job",
     "css_class": "order-summary-table",
     "js_var": "orderSummaryTable"
