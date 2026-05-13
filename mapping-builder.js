@@ -1369,13 +1369,23 @@ async function main() {
       validateForFormat(mapping, "json");
     }
 
-    if (args.output) {
-      if (args.format === "json") {
-        exportJson(mapping, resolve(args.output));
-      } else {
-        exportJs(mapping, resolve(args.output));
+    let outputPath = args.output;
+    if (!outputPath) {
+      const rl = createRl();
+      try {
+        outputPath = await ask(rl, "Output file path (press Enter for stdout)");
+      } finally {
+        rl.close();
       }
-      console.error(`Wrote ${args.format} mapping to ${resolve(args.output)}`);
+    }
+
+    if (outputPath) {
+      if (args.format === "json") {
+        exportJson(mapping, resolve(outputPath));
+      } else {
+        exportJs(mapping, resolve(outputPath));
+      }
+      console.error(`Wrote ${args.format} mapping to ${resolve(outputPath)}`);
     } else {
       if (args.format === "json") {
         console.log(JSON.stringify(mapping, null, 2));
