@@ -24,7 +24,7 @@ Everything else is example mappings (`mapping-*.js`), test data (`test-*.json`),
 
 ```bash
 # Run tests
-node --test mapping-builder.test.js
+node --test mapping-builder.test.js transform.test.js
 
 # Transform data
 node cli.js transform -d test-data.json -m mapping-crm-example.js
@@ -67,10 +67,12 @@ node mapping-builder.js --data test-data.json --auto -o my-mapping.js
 ## Testing
 
 - Test runner: Node.js built-in (`node --test`). No jest/mocha/vitest.
-- One test file: `mapping-builder.test.js` (~500 LoC).
-- Tests cover: `inspect()`, string transforms, `buildMapping()` DSL features, `buildMappingAuto()`, `validateForFormat()`, integration with real sample data.
-- **Rule**: any change to `mapping-builder.js` must keep tests passing. If you add a new DSL feature, add a `buildMapping()` test case for it.
-- No tests yet for `transform.js` or `cli.js` — those are exercised via the demo scripts and manual CLI runs.
+- Two test files:
+  - `mapping-builder.test.js` (~500 LoC) — unit tests for the builder
+  - `transform.test.js` — end-to-end tests for the engine + CLI
+- Tests cover: `inspect()`, string transforms, `buildMapping()` DSL features, `buildMappingAuto()`, `validateForFormat()`, integration with real sample data, and every example mapping producing exact expected output.
+- **Rule**: any change to `mapping-builder.js` or `transform.js` must keep tests passing. If you add a new DSL feature, add a `buildMapping()` test case for it.
+- `transform.test.js` runs all 9 example mappings against their checked-in `expected/` outputs to catch regressions in the engine or CLI.
 
 ## How to Add a Feature
 
@@ -113,9 +115,20 @@ json-transformer/
 ├── transform.js               # Core engine (import this)
 ├── cli.js                     # CLI entrypoint
 ├── mapping-builder.js         # Inspection + auto + interactive wizard
-├── mapping-builder.test.js    # Node built-in test runner
+├── mapping-builder.test.js    # Unit tests (builder)
+├── transform.test.js          # End-to-end tests (engine + all examples)
 ├── README.md                  # User-facing documentation
 ├── AGENTS.md                  # This file
+├── expected/                  # Checked-in expected outputs for e2e tests
+│   ├── expected-crm.json
+│   ├── expected-nested.js.json
+│   ├── expected-nested.json
+│   ├── expected-order-summary.json
+│   ├── expected-shaping.json
+│   ├── expected-data-cleaning.json
+│   ├── expected-timesheet.json
+│   ├── expected-employee.json
+│   └── expected-validated.json
 ├── docs/                      # Design analyses (not code)
 │   ├── cross-row-computations.md
 │   └── streaming-support.md
