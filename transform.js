@@ -515,6 +515,11 @@ function transformAggregate(sourceRow, fieldDef, dictionaries) {
     default: return undefined;
   }
 
+  // Strip JavaScript floating-point noise (e.g. 112.49000000000001 → 112.49)
+  if (typeof result === "number" && (fieldDef.aggregate === "sum" || fieldDef.aggregate === "avg")) {
+    result = Math.round(result * 1e10) / 1e10;
+  }
+
   return applyFormat(result, fieldDef);
 }
 
