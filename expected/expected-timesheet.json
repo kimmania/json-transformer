@@ -1,0 +1,56 @@
+[
+  {
+    "week": "2025-W01",
+    "hours": 40,
+    "project": "PRJ-100",
+    "entry_status": "Approved",
+    "employee_id": "E001",
+    "employee_name": "Alice Johnson",
+    "hire_date": "March 14, 2019",
+    "mgr_id": "E010",
+    "dept_code": "ENG",
+    "department": "Engineering",
+    "budget_center": "E-100",
+    "manager": "Carol Smith"
+  },
+  {
+    "week": "2025-W01",
+    "hours": 32,
+    "project": "PRJ-200",
+    "entry_status": "Approved",
+    "employee_id": "E002",
+    "employee_name": "Bob Chen",
+    "hire_date": "June 30, 2020",
+    "mgr_id": "E011",
+    "dept_code": "MKT",
+    "department": "Marketing",
+    "budget_center": "M-200",
+    "manager": "Dan Wilson"
+  },
+  {
+    "week": "2025-W01",
+    "hours": 45,
+    "project": "PRJ-100",
+    "entry_status": "Late",
+    "employee_id": "E010",
+    "employee_name": "Carol Smith",
+    "hire_date": "January 09, 2015",
+    "mgr_id": "E020",
+    "dept_code": "ENG",
+    "department": "Engineering",
+    "budget_center": "E-100",
+    "manager": "Eve Martinez"
+  },
+  {
+    "week": "2025-W01",
+    "hours": 38,
+    "project": "PRJ-300",
+    "entry_status": "Approved",
+    "employee_id": "E999",
+    "hire_date": null,
+    "dept_code": "UNASSIGNED",
+    "department": "Unknown Department",
+    "budget_center": "N/A",
+    "manager": "No manager"
+  }
+]

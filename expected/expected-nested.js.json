@@ -1,0 +1,78 @@
+[
+  {
+    "id": "ORD-1001",
+    "customer": {
+      "name": "ALICE JOHNSON",
+      "email": "alice@example.com"
+    },
+    "items": [
+      {
+        "quantity": 2,
+        "unit_price": 29.99,
+        "line_total": 59.98
+      },
+      {
+        "product_code": "GADGET-X",
+        "quantity": 1,
+        "unit_price": 149,
+        "line_total": 149
+      },
+      {
+        "product_code": "CABLE-B",
+        "quantity": 3,
+        "unit_price": 12.5,
+        "line_total": 37.5
+      }
+    ],
+    "shipping": {
+      "city": "NYC",
+      "state": "NY",
+      "zip": "10xxx"
+    },
+    "order_total": 234.48,
+    "ship_date": "June 15, 2025",
+    "priority": "standard",
+    "meta": "transformed"
+  },
+  {
+    "id": "ORD-1002",
+    "customer": {
+      "name": "BOB CHEN",
+      "email": "bob@demo.org"
+    },
+    "items": [
+      {
+        "product_code": "PART-Y",
+        "quantity": 10,
+        "unit_price": 4.99,
+        "line_total": 49.900000000000006
+      }
+    ],
+    "shipping": {
+      "city": "LA",
+      "state": "CA",
+      "zip": "90001"
+    },
+    "order_total": 49.9,
+    "ship_date": "July 01, 2025",
+    "priority": "standard",
+    "meta": "transformed"
+  },
+  {
+    "id": "ORD-1003",
+    "customer": {
+      "name": null,
+      "email": null
+    },
+    "items": [],
+    "shipping": {
+      "city": "CHI",
+      "state": "IL",
+      "zip": "60601"
+    },
+    "order_total": 0,
+    "ship_date": null,
+    "priority": "standard",
+    "meta": "transformed"
+  }
+]

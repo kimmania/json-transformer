@@ -23,6 +23,7 @@ cd json-transformer
 - [Why?](#why)
 - [Install](#install)
 - [Quick start](#quick-start)
+- [Examples](#examples)
 - [Mapping definition](#mapping-definition)
   - [Schema validation](#schema-validation-schema)
   - [Passthrough](#passthrough)
@@ -75,6 +76,40 @@ import { transform } from "./transform.js";
 import myMapping from "./my-mapping.js";
 
 const output = transform(inputArray, myMapping);
+```
+
+## Examples
+
+Working example files are included for every major feature. Each pair below links a **data file** to its **mapping file** and shows the command to run it. Expected outputs are checked into `expected/` and exercised by `transform.test.js`.
+
+| Data | Mapping | What it demonstrates |
+|---|---|---|
+| `test-data.json` | `mapping-crm-example.js` | Simple rename, date formatting, value mapping, `if`/`then`/`else`, `compute` |
+| `test-nested.json` | `mapping-nested.js` | Nested objects, `forEach` arrays, `compute` inside `forEach`, dot-paths |
+| `test-nested.json` | `mapping-nested.json` | Same nested transform as above, but as a pure JSON mapping (no `compute`) |
+| `test-order-summary.json` | `mapping-order-summary.js` | `aggregate` (`sum`, `count`, `min`, `max`, `avg`), `filter`, `sortBy` |
+| `test-shaping.json` | `mapping-shaping.js` | `flatten`, `groupBy`, `distinct`, nested `forEach` |
+| `test-data-cleaning.json` | `mapping-data-cleaning.js` | `passthrough`, `template`, `coalesce`, casing, `round`, `split`, `join`, `truncate`, `replace` |
+| `test-timesheet.json` | `mapping-timesheet.js` | Dictionary lookups (`$file` and inline), date formatting |
+| `test-employees.csv` | `mapping-employee.js` | CSV input, composite `and`/`or`/`not` conditions |
+| `test-invalid.json` | `mapping-validated.js` | Schema validation — transforms data and reports validation errors to stderr |
+
+Run any example:
+
+```bash
+node cli.js transform -d test-data.json -m mapping-crm-example.js
+```
+
+Compare to the checked-in expected output:
+
+```bash
+diff <(node cli.js transform -d test-data.json -m mapping-crm-example.js) expected/expected-crm.json
+```
+
+Run all example tests:
+
+```bash
+node --test transform.test.js
 ```
 
 ## Mapping definition
@@ -1000,8 +1035,19 @@ Supported features in `buildMapping()`: `from`, `rename`, `format`, `map`, `comp
 json-transformer/
 ├── transform.js               # Core engine (import this)
 ├── cli.js                     # CLI tool
+├── transform.test.js           # End-to-end tests: runs every example mapping against expected output
 ├── mapping-builder.js         # Mapping generator: inspect data and build mappings
 ├── mapping-builder.test.js    # Unit tests for mapping-builder.js (run with `node --test`)
+├── expected/                  # Checked-in expected output for every example mapping
+│   ├── expected-crm.json
+│   ├── expected-nested.js.json
+│   ├── expected-nested.json
+│   ├── expected-order-summary.json
+│   ├── expected-shaping.json
+│   ├── expected-data-cleaning.json
+│   ├── expected-timesheet.json
+│   ├── expected-employee.json
+│   └── expected-validated.json
 ├── mapping-crm-example.js     # Example: CRM migration (JS)
 ├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
 ├── mapping-employee.js        # Example: composite conditions

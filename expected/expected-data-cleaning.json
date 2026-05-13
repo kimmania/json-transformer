@@ -1,0 +1,75 @@
+[
+  {
+    "first_name": "alice",
+    "last_name": "SMITH",
+    "mobile": "555-0100",
+    "work_phone": null,
+    "home_phone": "555-0199",
+    "street": "123 main st",
+    "city": "Springfield",
+    "state": "IL",
+    "zip": "62701",
+    "tags": "javascript,nodejs,json",
+    "keywords": [
+      "search",
+      "filter",
+      "sort"
+    ],
+    "price": 12.35,
+    "score": 87.7,
+    "description": "This is a very long product description that should be trimmed for display",
+    "api_key_name": "My API Key Name",
+    "component_name": "UserProfileCard",
+    "source_system": "CRM",
+    "full_name": "Alice Smith",
+    "address": "123 Main St, Springfield, IL 62701",
+    "phone": "555-0100",
+    "tag_list": [
+      "javascript",
+      "nodejs",
+      "json"
+    ],
+    "keyword_str": "search | filter | sort",
+    "short_desc": "This is a very long product description…",
+    "phone_digits": "5550100",
+    "api_key": "my_api_key_name",
+    "css_class": "user-profile-card",
+    "js_var": "userProfileCard"
+  },
+  {
+    "first_name": "BOB",
+    "last_name": "jones",
+    "mobile": null,
+    "work_phone": null,
+    "home_phone": null,
+    "street": "456 oak ave",
+    "city": "Shelbyville",
+    "state": "IL",
+    "zip": "62565",
+    "tags": "python,data,etl",
+    "keywords": [
+      "import",
+      "export"
+    ],
+    "price": 100,
+    "score": 42.1,
+    "description": "Short desc",
+    "api_key_name": "data_export_job",
+    "component_name": "order-summary-table",
+    "source_system": "ERP",
+    "full_name": "Bob Jones",
+    "address": "456 Oak Ave, Shelbyville, IL 62565",
+    "phone": "N/A",
+    "tag_list": [
+      "python",
+      "data",
+      "etl"
+    ],
+    "keyword_str": "import | export",
+    "short_desc": "Short desc",
+    "phone_digits": null,
+    "api_key": "data_export_job",
+    "css_class": "order-summary-table",
+    "js_var": "orderSummaryTable"
+  }
+]

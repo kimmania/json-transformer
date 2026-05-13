@@ -1,0 +1,74 @@
+[
+  {
+    "bonus_eligible": true,
+    "remote_ok": true,
+    "needs_review": false,
+    "senior_ic": true,
+    "employment_type": "salaried",
+    "email_valid": true,
+    "emergency_contact": "555-0101",
+    "age": 1988,
+    "name": "Alice Smith",
+    "dept_code": "ENG"
+  },
+  {
+    "bonus_eligible": true,
+    "remote_ok": false,
+    "needs_review": false,
+    "senior_ic": false,
+    "employment_type": "salaried",
+    "email_valid": true,
+    "emergency_contact": "",
+    "age": 1990,
+    "name": "Bob Jones",
+    "dept_code": "MKT"
+  },
+  {
+    "bonus_eligible": false,
+    "remote_ok": true,
+    "needs_review": true,
+    "senior_ic": false,
+    "employment_type": "hourly",
+    "email_valid": true,
+    "emergency_contact": "555-0202",
+    "age": 1985,
+    "name": "Carol White",
+    "dept_code": "ENG"
+  },
+  {
+    "bonus_eligible": true,
+    "remote_ok": false,
+    "needs_review": false,
+    "senior_ic": true,
+    "employment_type": "salaried",
+    "email_valid": false,
+    "emergency_contact": "555-0303",
+    "age": 1992,
+    "name": "Dave Brown",
+    "dept_code": "Data"
+  },
+  {
+    "bonus_eligible": false,
+    "remote_ok": false,
+    "needs_review": false,
+    "senior_ic": false,
+    "employment_type": "salaried",
+    "email_valid": true,
+    "emergency_contact": "",
+    "age": 1995,
+    "name": "Eve Davis",
+    "dept_code": "HRS"
+  },
+  {
+    "bonus_eligible": true,
+    "remote_ok": true,
+    "needs_review": false,
+    "senior_ic": false,
+    "employment_type": "salaried",
+    "email_valid": true,
+    "emergency_contact": "555-0404",
+    "age": 1980,
+    "name": "Frank Miller",
+    "dept_code": "Management"
+  }
+]
