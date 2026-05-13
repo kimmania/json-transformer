@@ -1098,5 +1098,4 @@ json-transformer/
 - Join / zip two input files — combine two separately-shaped datasets by a shared key field, similar to a SQL join. Unlike the existing dictionary feature (which treats one file as a lookup table), a join would treat both files as equal-rank datasets. Key design questions: join type (inner / left / outer), field namespacing when both sides share a field name, and whether many-to-many expansion is in scope.
 
 **Tooling**
-- ~~Interactive mapping builder wizard (`mapping-builder.js --data` without `--auto`)~~ — **implemented**
 - TypeScript declarations
