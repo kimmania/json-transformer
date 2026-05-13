@@ -905,6 +905,8 @@ Mapping formats:
 
 The CLI accepts `.csv` files as input. The first row is treated as the header and becomes the field names for each record. Quoted fields, embedded commas, and embedded newlines are all handled correctly.
 
+**Line ending normalization:** inside quoted fields, `\r\n` (CRLF) and lone `\r` (CR) are normalized to a single `\n` (LF). This ensures consistent behavior regardless of how the CSV was generated.
+
 **Important:** all CSV values arrive as strings — use `format: "number"` (or `format: "boolean"`) in your field definitions to coerce them when needed:
 
 ```javascript
@@ -913,6 +915,8 @@ active: { from: "IsActive", format: "boolean" },
 ```
 
 Empty cells (`,,`) become empty strings `""` rather than `null` or `undefined`. This means an `exists` condition will return `true` for an empty cell — use `{ field: "Phone", op: "truthy" }` instead if you want to treat blank cells as absent.
+
+> **Production recommendation:** the built-in CSV parser is lightweight and loads the entire file into memory. For very large files (hundreds of MB or more) or complex CSV edge cases (e.g. custom delimiters, multi-character escape sequences, or strict RFC 4180 conformance requirements), use a dedicated streaming parser such as [`csv-parse`](https://csv.js.org/parse/) or [`papaparse`](https://www.papaparse.com/) and pipe the parsed records into `transform()` programmatically rather than via the CLI.
 
 ## Mapping builder (`mapping-builder.js`)
 

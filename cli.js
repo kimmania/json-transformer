@@ -116,6 +116,13 @@ function parseArgs(argv) {
 /**
  * Parse a CSV string into an array of objects using the header row as keys.
  * Handles quoted fields (including commas and newlines inside quotes).
+ *
+ * Line endings inside quoted fields are normalized to '\n' so that a CRLF
+ * sequence (\r\n) or a lone CR (\r) becomes a single LF (\n). Unquoted
+ * rows are split on the original line terminators.
+ *
+ * This is a lightweight built-in parser. For large or production CSV files,
+ * consider a dedicated streaming parser instead (see README).
  */
 function parseCsv(text) {
   const rows = [];
@@ -133,6 +140,11 @@ function parseCsv(text) {
         i++;
       } else if (ch === '"') {
         inQuotes = false;
+      } else if (ch === '\r' && next === '\n') {
+        field += '\n';
+        i++;
+      } else if (ch === '\r' || ch === '\n') {
+        field += '\n';
       } else {
         field += ch;
       }
@@ -322,3 +334,5 @@ main(process.argv).catch(e => {
   console.error(`fatal: ${e.message}`);
   process.exit(1);
 });
+
+export { parseCsv };
