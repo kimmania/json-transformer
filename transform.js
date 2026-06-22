@@ -141,7 +141,7 @@ const ISO_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2}
  * Strictly validate that a value is a well-formed ISO-8601 date string.
  * Invalid or ambiguous dates (e.g. 2025-02-30) are rejected.
  */
-function isValidIsoDate(value) {
+export function isValidIsoDate(value) {
   if (typeof value !== "string") return false;
   const s = value.trim();
   if (!ISO_RE.test(s)) return false;
@@ -553,9 +553,10 @@ function transformAggregate(sourceRow, fieldDef, dictionaries) {
     default: return undefined;
   }
 
-  // Strip JavaScript floating-point noise (e.g. 112.49000000000001 → 112.49)
+  // Strip JavaScript floating-point noise (e.g. 112.49000000000001 → 112.49).
+  // toPrecision(12) uses relative precision so it is safe at any magnitude.
   if (typeof result === "number" && (fieldDef.aggregate === "sum" || fieldDef.aggregate === "avg")) {
-    result = Math.round(result * 1e10) / 1e10;
+    result = parseFloat(result.toPrecision(12));
   }
 
   return applyFormat(result, fieldDef);

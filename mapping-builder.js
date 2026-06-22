@@ -42,10 +42,10 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isValidIsoDate } from "./transform.js";
 
 // ── Date / type detection helpers ───────────────────────────────────────────
 
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 const NUMERIC_STR_RE = /^-?\d+(\.\d+)?$/;
 
 /**
@@ -58,7 +58,6 @@ export function inspect(data) {
   }
 
   const fields = {};
-  const sample = data[0];
 
   function processValue(value, prefix) {
     if (value === null || value === undefined) return;
@@ -71,9 +70,9 @@ export function inspect(data) {
           processValue(first, prefix);
         }
         // Primitive arrays just get typed as "array"
-        fields[prefix] = { type: "array", sample: value.length };
+        if (!fields[prefix]) fields[prefix] = { type: "array", sample: value.length };
       } else {
-        fields[prefix] = { type: "array", sample: 0 };
+        if (!fields[prefix]) fields[prefix] = { type: "array", sample: 0 };
       }
       return;
     }
@@ -94,8 +93,11 @@ export function inspect(data) {
     }
   }
 
-  for (const [k, v] of Object.entries(sample)) {
-    processValue(v, k);
+  // First pass: discover field names and types across all records
+  for (const record of data) {
+    for (const [k, v] of Object.entries(record)) {
+      processValue(v, k);
+    }
   }
 
   // Second pass: collect distinct values and min/max for numbers
@@ -134,7 +136,7 @@ export function inspect(data) {
     const info = { ...meta };
     if (distinctMap[field]) {
       info.distinctValues = [...distinctMap[field]];
-      if (info.distinctValues.length <= 10) info.distinctValues = info.distinctValues;
+      if (info.distinctValues.length > 10) info.distinctValues = info.distinctValues.slice(0, 10);
     }
     if (numValues[field]) {
       info.min = numValues[field].min;
@@ -150,8 +152,7 @@ export function inspect(data) {
  * Detect if a string field looks like a date.
  */
 export function looksLikeDate(value) {
-  if (typeof value !== "string") return false;
-  return ISO_DATE_RE.test(value.trim());
+  return isValidIsoDate(value);
 }
 
 /**
@@ -744,6 +745,8 @@ async function promptFeature(rl, state) {
       break;
     case "compute":
       f.params = await promptComputeParams(rl, state);
+      // concat and custom-template modes produce a template entry, not a compute function
+      if (f.params.template !== undefined && f.params.fn === undefined) f.feature = "template";
       break;
   }
 }
@@ -994,8 +997,8 @@ async function promptComputeParams(rl, state) {
 
 // ── Wizard main loop ─────────────────────────────────────────────────────────
 
-async function runWizardLoop(rl, state) {
-  while (state.cursor < state.fields.length) {
+async function runWizardLoop(rl, state, stopAt = state.fields.length) {
+  while (state.cursor < stopAt) {
     printFieldHeader(state);
     const f = state.fields[state.cursor];
 
@@ -1084,7 +1087,7 @@ async function editField(rl, state) {
   if (idx >= 0 && idx < state.fields.length) {
     state.cursor = idx;
     state.fields[idx].skipped = false;
-    await runWizardLoop(rl, state);
+    await runWizardLoop(rl, state, idx + 1);
   }
 }
 
@@ -1407,7 +1410,7 @@ async function main() {
   printHelp();
 }
 
-if (import.meta.main) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch(e => {
     console.error(`fatal: ${e.message}`);
     process.exit(1);
