@@ -69,11 +69,10 @@ SECURITY NOTE
 
 BUILDING MAPPINGS
   Need help creating a mapping? Use mapping-builder.js to inspect your
-  data and generate a mapping interactively or automatically:
+  data and auto-generate a mapping:
 
-    node mapping-builder.js --inspect <file>   # Analyze data structure
-    node mapping-builder.js --data <file>       # Interactive wizard
-    node mapping-builder.js --data <file> --auto # Auto-generate
+    node mapping-builder.js --inspect <file>          # Analyze data structure
+    node mapping-builder.js --data <file> -o map.js   # Auto-generate a mapping
 `);
 }
 

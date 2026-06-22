@@ -49,7 +49,6 @@ only declarative rules.
   - [CSV input](#csv-input)
 - [Mapping builder (`mapping-builder.js`)](#mapping-builder-mapping-builderjs)
   - [Inspect your data](#inspect-your-data)
-  - [Interactive wizard](#interactive-wizard)
   - [Auto-generate a mapping](#auto-generate-a-mapping)
   - [Programmatic API](#programmatic-api)
 - [File structure](#file-structure)
@@ -941,7 +940,7 @@ Empty cells (`,,`) become empty strings `""` rather than `null` or `undefined`. 
 
 ## Mapping builder (`mapping-builder.js`)
 
-A companion tool that inspects source JSON and generates mapping files automatically. Use it to bootstrap a mapping from sample data instead of writing one by hand.
+A companion tool that inspects source JSON and auto-generates mapping files. Use it to bootstrap a mapping from sample data instead of writing one by hand.
 
 ### Inspect your data
 
@@ -970,41 +969,12 @@ Fields discovered: 9
 
 For a machine-readable report, add `-o report.json`.
 
-### Interactive wizard
+### Auto-generate a mapping
 
-Run without `--auto` to launch a guided field-by-field prompt:
+Generate a best-guess mapping from a data file:
 
 ```bash
 node mapping-builder.js --data examples/test-data.json -o mapping.js
-```
-
-The wizard walks you through each discovered field with smart defaults:
-- Target field names pre-filled as `snake_case`
-- Date strings pre-selected for `format: "date"`
-- Decimal numeric strings pre-selected for `format: "number"`
-- Arrays launch a **recursive sub-wizard** for their sub-fields
-
-At each field you can:
-- **[a]** accept the default
-- **[c]** customize: pick from rename, format, map, template, if/then/else, coalesce, value, default, forEach, compute
-- **[s]** skip the field
-- **[b]** go back to the previous field
-- **[p]** preview the mapping built so far
-
-On the preview screen:
-- **[w]** write to file
-- **[e]** edit a specific field
-- **[t]** test-transform the first 3 records to verify output
-- **[q]** quit without saving
-
-Non-TTY environments (piped stdin, CI) automatically fall back to `--auto` mode.
-
-### Auto-generate a mapping
-
-Generate a best-guess mapping with `--auto`:
-
-```bash
-node mapping-builder.js --data examples/test-data.json --auto -o mapping.js
 ```
 
 Rules applied automatically:
@@ -1023,7 +993,7 @@ node cli.js transform -d examples/test-data.json -m mapping.js
 Export as `.json` instead of `.js` (serializable, no `compute`):
 
 ```bash
-node mapping-builder.js --data examples/test-data.json --auto --format json -o mapping.json
+node mapping-builder.js --data examples/test-data.json --format json -o mapping.json
 ```
 
 ### Programmatic API
