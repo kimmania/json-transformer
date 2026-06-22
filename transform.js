@@ -177,8 +177,12 @@ function escapeRe(s) {
 }
 
 function formatDate(dateValue, outputFormat) {
-  if (!isValidIsoDate(dateValue)) return dateValue;
-  const d = new Date(dateValue);
+  // Normalize SQL/MySQL "YYYY-MM-DD HH:MM:SS" to ISO 8601 "YYYY-MM-DDTHH:MM:SS"
+  const normalized = typeof dateValue === "string"
+    ? dateValue.replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(\.\d+)?)$/, "$1T$2")
+    : dateValue;
+  if (!isValidIsoDate(normalized)) return dateValue;
+  const d = new Date(normalized);
 
   const pad2 = (n) => String(n).padStart(2, "0");
   const YYYY = d.getFullYear();
