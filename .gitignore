@@ -17,6 +17,9 @@ yarn-error.log*
 *.swp
 *.swo
 
+# Claude Code
+.claude/
+
 # Output
 *.output.json
 *.output.csv
