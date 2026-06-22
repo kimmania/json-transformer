@@ -1,0 +1,60 @@
+{
+  "id": "crm-legacy-to-modern",
+  "version": "1.0.0",
+  "fields": {
+    "full_name":     { "from": "FullName" },
+    "email_address": { "from": "EmailAddr" },
+    "status": {
+      "from": "StatusCode",
+      "map": {
+        "A": "active",
+        "I": "inactive",
+        "P": "pending",
+        "X": "cancelled"
+      }
+    },
+    "created": {
+      "from": "CreatedDate",
+      "format": "date",
+      "outputFormat": "YYYY-MM-DD"
+    },
+    "last_login": {
+      "from": "LastActive",
+      "format": "date",
+      "outputFormat": "MM/DD/YYYY hh:mm AMPM"
+    },
+    "join_month": {
+      "from": "CreatedDate",
+      "format": "date",
+      "outputFormat": "MMMM"
+    },
+    "tier": {
+      "if": { "field": "TotalSpend", "op": "gte", "value": 10000 },
+      "then": "VIP Platinum",
+      "else": "standard"
+    },
+    "is_vip": {
+      "if": { "field": "StatusCode", "op": "eq", "value": "A" },
+      "then": true,
+      "else": false
+    },
+    "source_system": { "value": "crm-legacy" },
+    "country": {
+      "from": "Country",
+      "format": "uppercase"
+    },
+    "email_lower": {
+      "from": "EmailAddr",
+      "format": "lowercase"
+    },
+    "message": {
+      "if": {
+        "field": "StatusCode",
+        "op": "in",
+        "value": ["A", "P"]
+      },
+      "then": "Welcome!",
+      "else": "Account is currently unavailable."
+    }
+  }
+}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>json-transformer Web Transform Assistant</title>
+    <script>
+      try {
+        var savedTheme = localStorage.getItem("jt-theme");
+        if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+      } catch (e) {}
+    </script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app"></div>
+    
+    <!-- Preact (inlined) -->
+    <script src="preact.js"></script>
+    <script src="preact-hooks.js"></script>
+    <script>
+      // Bridge: hooks are exported to preactHooks, merge them into preact
+      if (typeof preactHooks !== "undefined" && typeof preact !== "undefined") {
+        var hookNames = ["useState","useEffect","useRef","useMemo","useCallback","useContext","useReducer","useLayoutEffect","useDebugValue","useId","useErrorBoundary","useImperativeHandle"];
+        hookNames.forEach(function(n) {
+          if (typeof preactHooks[n] === "function") {
+            preact[n] = preactHooks[n];
+          }
+        });
+      }
+    </script>
+    
+    <!-- Transform engine (browser-compatible) -->
+    <script src="transform-browser.js"></script>
+    <script src="mapping-features.js"></script>
+    
+    <!-- App code -->
+    <script src="app.js"></script>
+</body>
+</html>

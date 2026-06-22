@@ -51,6 +51,7 @@ only declarative rules.
   - [Inspect your data](#inspect-your-data)
   - [Auto-generate a mapping](#auto-generate-a-mapping)
   - [Programmatic API](#programmatic-api)
+- [Mapping Builder UI (`helper/`)](#mapping-builder-ui-helper)
 - [File structure](#file-structure)
 - [Limitations](#limitations)
 - [Future ideas](#future-ideas)
@@ -1031,6 +1032,24 @@ const mapping = buildMapping(report, [
 
 Supported features in `buildMapping()`: `from`, `rename`, `format`, `map`, `compute`, `if`, `forEach`, `aggregate`, `flatten`, `groupBy`, `distinct`, `filter`, `sortBy`, `template`, `coalesce`, `lookup`, `value`, `default`, `passthrough`, `schema`.
 
+## Mapping Builder UI (`helper/`)
+
+A standalone browser-based UI for building and testing mapping files visually — no build step or npm install required. Open `helper/index.html` directly in any modern browser.
+
+See **[helper/README.md](helper/README.md)** for full documentation, including the feature list, keyboard shortcuts, and how to load sample data.
+
+### Keeping `transform-browser.js` in sync
+
+The UI uses `helper/transform-browser.js` — a browser port of the engine that exports via `window.JsonTransformer` instead of ES module exports, and replaces Node.js `fs`/`path` APIs with browser-safe equivalents. It also sandboxes `compute` functions (string-based, 500 ms timeout) since `eval`/`new Function` runs in the browser context.
+
+**Any change to the core transformation logic in `transform.js` must be mirrored in `helper/transform-browser.js`**, and vice versa. The two files share the same algorithm — divergence causes mappings that work in the CLI to behave differently in the UI, or vice versa.
+
+Key differences to maintain parity for:
+- `formatDate` / `isValidIsoDate` — date normalization and formatting
+- `transformField`, `transformOne`, `transformAggregate` — core mapping logic
+- `evaluateCondition` — condition operators (`eq`, `in`, `matches`, etc.)
+- `prepareMapping` — dictionary loading (browser version is inline-only; `$file` is not supported in the UI)
+
 ## File structure
 
 ```
@@ -1075,6 +1094,17 @@ json-transformer/
 │       ├── expected-timesheet.json
 │       ├── expected-employee.json
 │       └── expected-validated.json
+├── helper/                    # Browser-based mapping builder UI (open index.html directly)
+│   ├── index.html             # Entry point — open in browser, no server required
+│   ├── transform-browser.js   # Browser port of transform.js — keep in sync with transform.js
+│   ├── app.js                 # Preact UI application
+│   ├── mapping-features.js    # Visual mapping feature definitions and validation
+│   ├── sample-mappings.js     # Bundled sample mapping catalog
+│   ├── styles.css             # Layout and component styles
+│   ├── preact.js              # Inlined Preact 10.x (no CDN)
+│   ├── preact-hooks.js        # Inlined Preact hooks (no CDN)
+│   ├── samples/               # Sample mapping and data files for the UI
+│   └── README.md              # Full UI documentation
 ├── docs/                      # Design analyses and RFCs
 │   ├── cross-row-computations.md
 │   └── streaming-support.md
