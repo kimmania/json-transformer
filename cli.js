@@ -32,12 +32,17 @@ json-transformer — Declarative JSON transformation CLI
 USAGE
   node cli.js transform --data <file> --mapping <file> [options]
   node cli.js --inspect <file> [options]
+  node cli.js --sample <file> [options]
+  node cli.js --convert <file> [options]
 
 OPTIONS
   -d, --data      <file>   Input data file (.json array or .csv); repeat to merge multiple files
   -m, --mapping   <file>   Mapping definition (.js or .json)
   -o, --output    <file>   Output file (default: stdout)
   -i, --inspect   <file>   Inspect a data file and print a field analysis report
+      --sample    <file>   Extract the first N rows of a CSV (or JSON array) as JSON
+      --head      <n>      Number of rows for --sample (default: 5)
+      --convert   <file>   Convert a CSV (or JSON array) to JSON with no mapping applied
   --compact                Minified JSON output (no whitespace)
   -h, --help               Show this help
 
@@ -49,6 +54,10 @@ EXAMPLES
   node cli.js transform -d data.json -m map.js | jq '.[0]'
   node cli.js --inspect data.json
   node cli.js -i data.json -o inspection.json
+  node cli.js --sample data.csv -o sample.json
+  node cli.js --sample data.csv --head 10 -o sample.json
+  node cli.js --convert data.csv -o data.json
+  node cli.js --convert data.csv --compact -o data.json
 
 MAPPING FORMATS
   .json  Pure declarative mapping (all features except compute functions)
@@ -60,11 +69,10 @@ SECURITY NOTE
 
 BUILDING MAPPINGS
   Need help creating a mapping? Use mapping-builder.js to inspect your
-  data and generate a mapping interactively or automatically:
+  data and auto-generate a mapping:
 
-    node mapping-builder.js --inspect <file>   # Analyze data structure
-    node mapping-builder.js --data <file>       # Interactive wizard
-    node mapping-builder.js --data <file> --auto # Auto-generate
+    node mapping-builder.js --inspect <file>          # Analyze data structure
+    node mapping-builder.js --data <file> -o map.js   # Auto-generate a mapping
 `);
 }
 
@@ -81,6 +89,9 @@ function parseArgs(argv) {
     mapping: null,
     output: null,
     inspect: null,
+    sample: null,
+    head: 5,
+    convert: null,
     pretty: true,
     help: false,
   };
@@ -99,6 +110,17 @@ function parseArgs(argv) {
         args.pretty = false; break;
       case "-i": case "--inspect":
         i++; args.inspect = argv[i]; break;
+      case "--sample":
+        i++; args.sample = argv[i]; break;
+      case "--convert":
+        i++; args.convert = argv[i]; break;
+      case "--head": {
+        i++;
+        const n = parseInt(argv[i], 10);
+        if (isNaN(n) || n < 1) die(`--head requires a positive integer, got "${argv[i]}"`);
+        args.head = n;
+        break;
+      }
       case "-h": case "--help":
         args.help = true; break;
       default:
@@ -217,7 +239,7 @@ async function main(rawArgs) {
   const rest = rawArgs.slice(2);
   const args = parseArgs(rest);
 
-  if (args.help || (!args.data && !args.mapping && !args.inspect)) {
+  if (args.help || (!args.data && !args.mapping && !args.inspect && !args.sample && !args.convert)) {
     printHelp();
     return;
   }
@@ -260,6 +282,78 @@ async function main(rawArgs) {
     return;
   }
 
+  // ── Convert mode ────────────────────────────────────────────────────────
+  if (args.convert) {
+    const dataPath = path.resolve(args.convert);
+    if (!fs.existsSync(dataPath)) {
+      die(`data file not found: ${dataPath}`);
+    }
+    let data;
+    if (args.convert.endsWith(".csv")) {
+      try {
+        data = parseCsv(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`failed to parse CSV file "${args.convert}": ${e.message}`);
+      }
+    } else {
+      try {
+        data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`invalid JSON in data file "${args.convert}": ${e.message}`);
+      }
+      if (!Array.isArray(data)) {
+        die(`data file must contain a JSON array of objects: ${args.convert}`);
+      }
+    }
+
+    const output = args.pretty ? JSON.stringify(data, null, 2) : JSON.stringify(data);
+    if (args.output) {
+      fs.writeFileSync(path.resolve(args.output), output + "\n", "utf-8");
+      console.error(`wrote ${data.length} record(s) to ${path.resolve(args.output)}`);
+    } else {
+      process.stdout.write(output + "\n");
+    }
+    return;
+  }
+
+  // ── Sample mode ─────────────────────────────────────────────────────────
+  if (args.sample) {
+    const dataPath = path.resolve(args.sample);
+    if (!fs.existsSync(dataPath)) {
+      die(`data file not found: ${dataPath}`);
+    }
+    let data;
+    if (args.sample.endsWith(".csv")) {
+      try {
+        data = parseCsv(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`failed to parse CSV file "${args.sample}": ${e.message}`);
+      }
+    } else {
+      try {
+        data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
+      } catch (e) {
+        die(`invalid JSON in data file "${args.sample}": ${e.message}`);
+      }
+      if (!Array.isArray(data)) {
+        die(`data file must contain a JSON array of objects: ${args.sample}`);
+      }
+    }
+
+    const sample = data.slice(0, args.head);
+    const output = args.pretty
+      ? JSON.stringify(sample, null, 2)
+      : JSON.stringify(sample);
+
+    if (args.output) {
+      fs.writeFileSync(path.resolve(args.output), output + "\n", "utf-8");
+      console.error(`wrote ${sample.length} record(s) to ${path.resolve(args.output)}`);
+    } else {
+      process.stdout.write(output + "\n");
+    }
+    return;
+  }
+
   // ── Transform mode ─────────────────────────────────────────────────────
   if (!args.data || args.data.length === 0) die("missing --data parameter");
   if (!args.mapping) die("missing --mapping parameter");
@@ -288,7 +382,7 @@ async function main(rawArgs) {
         die(`data file must contain a JSON array of objects: ${dataArg}`);
       }
     }
-    sourceData.push(...records);
+    for (const record of records) sourceData.push(record);
   }
 
   // Load mapping

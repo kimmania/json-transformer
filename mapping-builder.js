@@ -42,10 +42,10 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isValidIsoDate } from "./transform.js";
 
 // ── Date / type detection helpers ───────────────────────────────────────────
 
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 const NUMERIC_STR_RE = /^-?\d+(\.\d+)?$/;
 
 /**
@@ -58,7 +58,6 @@ export function inspect(data) {
   }
 
   const fields = {};
-  const sample = data[0];
 
   function processValue(value, prefix) {
     if (value === null || value === undefined) return;
@@ -71,9 +70,9 @@ export function inspect(data) {
           processValue(first, prefix);
         }
         // Primitive arrays just get typed as "array"
-        fields[prefix] = { type: "array", sample: value.length };
+        if (!fields[prefix]) fields[prefix] = { type: "array", sample: value.length };
       } else {
-        fields[prefix] = { type: "array", sample: 0 };
+        if (!fields[prefix]) fields[prefix] = { type: "array", sample: 0 };
       }
       return;
     }
@@ -94,8 +93,11 @@ export function inspect(data) {
     }
   }
 
-  for (const [k, v] of Object.entries(sample)) {
-    processValue(v, k);
+  // First pass: discover field names and types across all records
+  for (const record of data) {
+    for (const [k, v] of Object.entries(record)) {
+      processValue(v, k);
+    }
   }
 
   // Second pass: collect distinct values and min/max for numbers
@@ -134,7 +136,7 @@ export function inspect(data) {
     const info = { ...meta };
     if (distinctMap[field]) {
       info.distinctValues = [...distinctMap[field]];
-      if (info.distinctValues.length <= 10) info.distinctValues = info.distinctValues;
+      if (info.distinctValues.length > 10) info.distinctValues = info.distinctValues.slice(0, 10);
     }
     if (numValues[field]) {
       info.min = numValues[field].min;
@@ -150,8 +152,7 @@ export function inspect(data) {
  * Detect if a string field looks like a date.
  */
 export function looksLikeDate(value) {
-  if (typeof value !== "string") return false;
-  return ISO_DATE_RE.test(value.trim());
+  return isValidIsoDate(value);
 }
 
 /**
@@ -556,617 +557,6 @@ export function exportJson(mapping, filePath) {
   writeFileSync(filePath, content, "utf-8");
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  Interactive Wizard
-// ═══════════════════════════════════════════════════════════════════════════════
-
-import { createInterface } from "node:readline";
-
-// ── Readline helpers ─────────────────────────────────────────────────────────
-
-function createRl() {
-  return createInterface({ input: process.stdin, output: process.stdout });
-}
-
-async function ask(rl, question, defaultValue) {
-  const prompt = defaultValue !== undefined
-    ? `${question} [${defaultValue}] > `
-    : `${question} > `;
-  return new Promise((resolve) => {
-    rl.question(prompt, (answer) => {
-      resolve(answer.trim() || defaultValue || "");
-    });
-  });
-}
-
-async function askChoice(rl, question, choices, defaultIndex = 0) {
-  console.log(`\n${question}`);
-  choices.forEach((c, i) => {
-    const marker = i === defaultIndex ? "← default" : "";
-    console.log(`  [${c.key}] ${c.label} ${marker}`);
-  });
-  const defKey = choices[defaultIndex]?.key || "";
-  const answer = await ask(rl, "Choice", defKey);
-  const found = choices.find(c => c.key === answer);
-  if (!found) {
-    console.log(`  Invalid choice "${answer}". Using default.`);
-    return choices[defaultIndex]?.value;
-  }
-  return found.value;
-}
-
-async function askYesNo(rl, question, defaultYes = false) {
-  const def = defaultYes ? "Y" : "N";
-  const answer = await ask(rl, `${question} (y/n)`, def);
-  return /^y/i.test(answer);
-}
-
-// ── Wizard state ─────────────────────────────────────────────────────────────
-
-function initWizardState(report, sourceData) {
-  const fields = [];
-  const allFieldNames = Object.keys(report.fields);
-
-  for (const sourceField of allFieldNames) {
-    const meta = report.fields[sourceField];
-    const { targetField, feature, params } = inferFieldDefaults(sourceField, meta);
-    fields.push({
-      sourceField,
-      targetField,
-      feature,
-      params: params || {},
-      skipped: false,
-      meta,
-    });
-  }
-
-  return {
-    fields,
-    cursor: 0,
-    passthrough: undefined,
-    schema: undefined,
-    mappingId: undefined,
-    sourceData,
-    report,
-  };
-}
-
-function inferFieldDefaults(sourceField, meta) {
-  const targetField = toSnakeCase(sourceField);
-
-  if (sourceField.includes(".")) {
-    return { targetField, feature: "from", params: {} };
-  }
-
-  if (meta.type === "array") {
-    return { targetField: sourceField, feature: "forEach", params: { fields: {} } };
-  }
-
-  if (meta.type === "string" && looksLikeDate(meta.sample || "")) {
-    return { targetField, feature: "format", params: { format: "date", outputFormat: "YYYY-MM-DD" } };
-  }
-
-  if (meta.type === "string" && NUMERIC_STR_RE.test(String(meta.sample || ""))) {
-    const sampleStr = String(meta.sample || "");
-    if (sampleStr.includes(".")) {
-      return { targetField, feature: "format", params: { format: "number" } };
-    }
-  }
-
-  if (meta.type === "mixed") {
-    return { targetField, feature: "from", params: {} };
-  }
-
-  if (meta.type === "string" && ["true", "false"].includes(String(meta.sample).toLowerCase())) {
-    return { targetField, feature: "format", params: { format: "boolean" } };
-  }
-
-  return { targetField, feature: "from", params: {} };
-}
-
-// ── Field presentation ───────────────────────────────────────────────────────
-
-function printFieldHeader(state) {
-  const f = state.fields[state.cursor];
-  const total = state.fields.length;
-  console.log(`\n═══════════════════════════════════════════════════════════════════════════════`);
-  console.log(`Field ${state.cursor + 1} of ${total}: ${f.sourceField}`);
-  console.log(`───────────────────────────────────────────────────────────────────────────────`);
-  console.log(`  type:         ${f.meta.type}`);
-  if (f.meta.sample !== undefined) {
-    const s = typeof f.meta.sample === "string" ? `"${f.meta.sample}"` : JSON.stringify(f.meta.sample);
-    console.log(`  sample:       ${s}`);
-  }
-  if (f.meta.distinctValues && f.meta.distinctValues.length <= 10) {
-    console.log(`  values:       ${f.meta.distinctValues.map(v => `"${v}"`).join(", ")}`);
-  }
-  if (f.meta.min !== undefined) {
-    console.log(`  range:        ${f.meta.min} → ${f.meta.max}`);
-  }
-  console.log("");
-}
-
-// ── Feature prompts ──────────────────────────────────────────────────────────
-
-async function promptFeature(rl, state) {
-  const f = state.fields[state.cursor];
-  const choices = [
-    { key: "r", label: "rename (simple from mapping)", value: "from" },
-    { key: "f", label: "format (date, number, case, trim, etc.)", value: "format" },
-    { key: "m", label: "map (value substitution)", value: "map" },
-    { key: "t", label: "template (combine fields into a string)", value: "template" },
-    { key: "i", label: "if / then / else", value: "if" },
-    { key: "c", label: "coalesce (first non-null of several fields)", value: "coalesce" },
-    { key: "v", label: "value (static literal)", value: "value" },
-    { key: "d", label: "default (fallback if missing/null)", value: "default" },
-    { key: "e", label: "forEach (array of objects)", value: "forEach" },
-    { key: "x", label: "compute (arithmetic / concatenate)", value: "compute" },
-  ];
-
-  const validChoices = choices.filter(c => {
-    if (f.meta.type === "array" && c.value !== "forEach" && c.value !== "value") return false;
-    if (c.value === "forEach" && f.meta.type !== "array") return false;
-    return true;
-  });
-
-  const defaultValue = f.feature;
-  const defaultIndex = validChoices.findIndex(c => c.value === defaultValue);
-  const feature = await askChoice(rl, "Feature:", validChoices, Math.max(0, defaultIndex));
-  f.feature = feature;
-
-  switch (feature) {
-    case "from":
-      f.params = {};
-      break;
-    case "format":
-      f.params = await promptFormatParams(rl, f.meta);
-      break;
-    case "map":
-      f.params = await promptMapParams(rl, f.meta);
-      break;
-    case "template":
-      f.params = await promptTemplateParams(rl, state);
-      break;
-    case "if":
-      f.params = await promptIfParams(rl, state);
-      break;
-    case "coalesce":
-      f.params = await promptCoalesceParams(rl, state);
-      break;
-    case "value":
-      f.params = await promptValueParams(rl);
-      break;
-    case "default":
-      f.params = await promptDefaultParams(rl);
-      break;
-    case "forEach":
-      f.params = await promptForEachParams(rl, state);
-      break;
-    case "compute":
-      f.params = await promptComputeParams(rl, state);
-      break;
-  }
-}
-
-async function promptFormatParams(rl, meta) {
-  const formatChoices = [
-    { key: "1", label: "uppercase", value: "uppercase" },
-    { key: "2", label: "lowercase", value: "lowercase" },
-    { key: "3", label: "titlecase", value: "titlecase" },
-    { key: "4", label: "trim", value: "trim" },
-    { key: "5", label: "number", value: "number" },
-    { key: "6", label: "boolean", value: "boolean" },
-    { key: "7", label: "date", value: "date" },
-    { key: "8", label: "round", value: "round" },
-    { key: "9", label: "truncate", value: "truncate" },
-    { key: "10", label: "replace", value: "replace" },
-    { key: "11", label: "split", value: "split" },
-    { key: "12", label: "camelcase", value: "camelcase" },
-    { key: "13", label: "snakecase", value: "snakecase" },
-    { key: "14", label: "kebabcase", value: "kebabcase" },
-  ];
-
-  let defIdx = 0;
-  if (meta.type === "string" && looksLikeDate(meta.sample || "")) defIdx = 6;
-  else if (meta.type === "string" && NUMERIC_STR_RE.test(String(meta.sample || "")) && String(meta.sample).includes(".")) defIdx = 4;
-
-  const format = await askChoice(rl, "Format type:", formatChoices, defIdx);
-  const params = { format };
-
-  if (format === "date") {
-    const fmt = await ask(rl, "Output format", "YYYY-MM-DD");
-    params.outputFormat = fmt;
-  }
-  if (format === "round") {
-    const prec = await ask(rl, "Precision (decimal places)", "2");
-    params.precision = parseInt(prec, 10);
-  }
-  if (format === "truncate") {
-    const len = await ask(rl, "Max length", "50");
-    params.length = parseInt(len, 10);
-    const sfx = await ask(rl, "Suffix", "...");
-    params.suffix = sfx;
-  }
-  if (format === "replace") {
-    const find = await ask(rl, "Find pattern");
-    params.find = find;
-    const replaceWith = await ask(rl, "Replace with", "");
-    params.replaceWith = replaceWith;
-  }
-  if (format === "split") {
-    const sep = await ask(rl, "Separator", ",");
-    params.separator = sep;
-  }
-  return params;
-}
-
-async function promptMapParams(rl, meta) {
-  const mapObj = {};
-  console.log("\nMap values:");
-  if (meta.distinctValues && meta.distinctValues.length > 0) {
-    for (const val of meta.distinctValues.slice(0, 20)) {
-      const mapped = await ask(rl, `  "${val}" →`, val);
-      mapObj[val] = mapped;
-    }
-  } else {
-    console.log("  No distinct values found. Add mappings manually.");
-    while (await askYesNo(rl, "Add another mapping?")) {
-      const from = await ask(rl, "  Source value");
-      const to = await ask(rl, "  Target value");
-      mapObj[from] = to;
-    }
-  }
-  return { mapObject: mapObj };
-}
-
-async function promptTemplateParams(rl, state) {
-  const available = state.fields.filter(f => !f.skipped).map(f => f.sourceField);
-  console.log("\nAvailable fields: " + available.join(", "));
-  const template = await ask(rl, "Template (use {fieldName} for substitutions)");
-  const wantFormat = await askYesNo(rl, "Apply a format to the result?");
-  const params = { template };
-  if (wantFormat) {
-    const fmt = await ask(rl, "Format (uppercase/lowercase/titlecase/trim)", "titlecase");
-    params.format = fmt;
-  }
-  return params;
-}
-
-async function promptIfParams(rl, state) {
-  const available = state.fields.map(f => f.sourceField);
-  console.log("\nAvailable fields: " + available.join(", "));
-  const field = await ask(rl, "Condition field");
-  const op = await ask(rl, "Operator (eq/neq/gt/gte/lt/lte/truthy/falsy)", "eq");
-  let condition = { field, op };
-  if (!["truthy", "falsy", "exists"].includes(op)) {
-    const value = await ask(rl, "Compare value");
-    condition.value = value;
-  }
-  const thenVal = await ask(rl, "Then (value if true)");
-  const elseVal = await ask(rl, "Else (value if false)");
-  return { condition, then: thenVal, else: elseVal };
-}
-
-async function promptCoalesceParams(rl, state) {
-  const available = state.fields.map(f => f.sourceField);
-  console.log("\nAvailable fields: " + available.join(", "));
-  const fields = [];
-  while (true) {
-    const f = await ask(rl, `Field ${fields.length + 1} (blank to finish)`);
-    if (!f) break;
-    fields.push(f);
-  }
-  const def = await ask(rl, "Default if all null");
-  return { fields, default: def || undefined };
-}
-
-async function promptValueParams(rl) {
-  const value = await ask(rl, "Static value");
-  return { value };
-}
-
-async function promptDefaultParams(rl) {
-  const value = await ask(rl, "Default value if source is missing/null");
-  return { value };
-}
-
-async function promptForEachParams(rl, state) {
-  const f = state.fields[state.cursor];
-  const sampleItems = extractSampleArray(state.sourceData, f.sourceField);
-
-  if (sampleItems.length === 0) {
-    console.log("  Warning: could not find non-empty array items for this field.");
-    return { fields: {} };
-  }
-
-  console.log(`\n  Found ${sampleItems.length} sample item(s) for array inspection.`);
-  const proceed = await askYesNo(rl, "Configure sub-fields for forEach?", true);
-  if (!proceed) {
-    return { fields: {} };
-  }
-
-  const subReport = inspect(sampleItems);
-  const subState = initWizardState(subReport, sampleItems);
-  await runWizardLoop(rl, subState);
-
-  const subFields = {};
-  for (const sf of subState.fields) {
-    if (sf.skipped) continue;
-    const entry = buildFieldEntry({
-      sourceField: sf.sourceField,
-      targetField: sf.targetField,
-      feature: sf.feature,
-      params: sf.params,
-    });
-    if (entry) subFields[sf.targetField] = entry;
-  }
-
-  return { fields: subFields };
-}
-
-function extractSampleArray(sourceData, fieldName) {
-  for (const record of sourceData) {
-    const val = getValueAtPath(record, fieldName);
-    if (Array.isArray(val) && val.length > 0) {
-      if (typeof val[0] === "object" && val[0] !== null) {
-        return val;
-      }
-    }
-  }
-  return [];
-}
-
-function getValueAtPath(obj, path) {
-  const parts = path.split(".");
-  let current = obj;
-  for (const part of parts) {
-    if (current === null || current === undefined) return undefined;
-    current = current[part];
-  }
-  return current;
-}
-
-// ── Compute template picker (Option C) ───────────────────────────────────────
-
-async function promptComputeParams(rl, state) {
-  const computeChoices = [
-    { key: "1", label: "concatenate fields into a string", value: "concat" },
-    { key: "2", label: "arithmetic on two number fields", value: "arithmetic" },
-    { key: "3", label: "custom template", value: "template" },
-  ];
-
-  const mode = await askChoice(rl, "Compute type:", computeChoices, 0);
-
-  if (mode === "concat") {
-    const available = state.fields.filter(f => !f.skipped).map(f => f.sourceField);
-    console.log("\nAvailable fields: " + available.join(", "));
-    const fields = [];
-    while (true) {
-      const f = await ask(rl, `Field ${fields.length + 1} (blank to finish)`);
-      if (!f) break;
-      fields.push(f);
-    }
-    const sep = await ask(rl, "Separator", " ");
-    const template = fields.map(f => `{${f}}`).join(sep);
-    return { template };
-  }
-
-  if (mode === "arithmetic") {
-    const available = state.fields
-      .filter(f => !f.skipped && (f.meta.type === "number" || (f.feature === "format" && f.params?.format === "number")))
-      .map(f => f.sourceField);
-    console.log("\nNumber fields: " + available.join(", "));
-    const a = await ask(rl, "First field");
-    const ops = [
-      { key: "+", label: "add", value: "+" },
-      { key: "-", label: "subtract", value: "-" },
-      { key: "*", label: "multiply", value: "*" },
-      { key: "/", label: "divide", value: "/" },
-    ];
-    const op = await askChoice(rl, "Operator:", ops, 0);
-    const b = await ask(rl, "Second field");
-
-    // Sanitize field names to prevent code injection via new Function()
-    const SAFE_FIELD_RE = /^[a-zA-Z0-9_.]+$/;
-    if (!SAFE_FIELD_RE.test(a) || !SAFE_FIELD_RE.test(b)) {
-      throw new Error("Invalid field name. Only alphanumeric, underscore, and dot characters are allowed.");
-    }
-    const SAFE_OPS = new Set(["+", "-", "*", "/"]);
-    if (!SAFE_OPS.has(op)) {
-      throw new Error(`Invalid operator "${op}". Only +, -, *, / are allowed.`);
-    }
-
-    const fnBody = `return ${a} ${op} ${b}`;
-    // eslint-disable-next-line no-new-func
-    const fn = new Function(a, b, fnBody);
-    return { fields: [a, b], fn };
-  }
-
-  if (mode === "template") {
-    const available = state.fields.filter(f => !f.skipped).map(f => f.sourceField);
-    console.log("\nAvailable fields: " + available.join(", "));
-    const template = await ask(rl, "Template (use {fieldName})", "{field1} {field2}");
-    return { template };
-  }
-
-  return {};
-}
-
-// ── Wizard main loop ─────────────────────────────────────────────────────────
-
-async function runWizardLoop(rl, state) {
-  while (state.cursor < state.fields.length) {
-    printFieldHeader(state);
-    const f = state.fields[state.cursor];
-
-    const target = await ask(rl, "Target field name", f.targetField);
-    f.targetField = target;
-
-    const actionChoices = [
-      { key: "c", label: "customize", value: "customize" },
-      { key: "s", label: "skip", value: "skip" },
-      { key: "a", label: "accept default", value: "accept" },
-      { key: "b", label: "back", value: "back" },
-      { key: "p", label: "preview mapping so far", value: "preview" },
-    ];
-    const action = await askChoice(rl, "Action:", actionChoices, 2);
-
-    if (action === "skip") {
-      f.skipped = true;
-      state.cursor++;
-      continue;
-    }
-
-    if (action === "back") {
-      if (state.cursor > 0) state.cursor--;
-      continue;
-    }
-
-    if (action === "preview") {
-      previewPartialMapping(state);
-      continue;
-    }
-
-    if (action === "customize") {
-      await promptFeature(rl, state);
-    }
-
-    state.cursor++;
-  }
-}
-
-function previewPartialMapping(state) {
-  const fields = {};
-  for (const f of state.fields) {
-    if (f.skipped) continue;
-    const entry = buildFieldEntry({
-      sourceField: f.sourceField,
-      targetField: f.targetField,
-      feature: f.feature,
-      params: f.params,
-    });
-    if (entry) fields[f.targetField] = entry;
-  }
-  const partial = { fields };
-  console.log("\n── Preview ────────────────────────────────────────────────────────────────────");
-  console.log(JSON.stringify(partial, null, 2));
-  console.log("");
-}
-
-// ── Final screen ─────────────────────────────────────────────────────────────
-
-async function runFinalScreen(rl, state) {
-  const configured = state.fields.filter(f => !f.skipped).length;
-  const skipped = state.fields.filter(f => f.skipped).length;
-
-  console.log(`\n═══════════════════════════════════════════════════════════════════════════════`);
-  console.log(`PREVIEW (${configured} fields configured, ${skipped} skipped)`);
-  previewPartialMapping(state);
-
-  const action = await askChoice(rl, "What next?", [
-    { key: "w", label: "write to file", value: "write" },
-    { key: "e", label: "edit a field", value: "edit" },
-    { key: "t", label: "test transform (first 3 records)", value: "test" },
-    { key: "q", label: "quit without saving", value: "quit" },
-  ], 0);
-
-  return action;
-}
-
-async function editField(rl, state) {
-  console.log("\nFields:");
-  state.fields.forEach((f, i) => {
-    const status = f.skipped ? "[skipped]" : `[${f.feature}]`;
-    console.log(`  ${i + 1}. ${f.sourceField} → ${f.targetField} ${status}`);
-  });
-  const num = await ask(rl, "Edit which field #");
-  const idx = parseInt(num, 10) - 1;
-  if (idx >= 0 && idx < state.fields.length) {
-    state.cursor = idx;
-    state.fields[idx].skipped = false;
-    await runWizardLoop(rl, state);
-  }
-}
-
-async function testTransformPreview(state) {
-  try {
-    const { transform } = await import("./transform.js");
-    const fields = {};
-    for (const f of state.fields) {
-      if (f.skipped) continue;
-      const entry = buildFieldEntry({
-        sourceField: f.sourceField,
-        targetField: f.targetField,
-        feature: f.feature,
-        params: f.params,
-      });
-      if (entry) fields[f.targetField] = entry;
-    }
-    const mapping = { fields };
-    const sample = state.sourceData.slice(0, 3);
-    const result = transform(sample, mapping);
-    console.log("\n── Test Transform Output (first 3 records) ────────────────────────────────────");
-    console.log(JSON.stringify(result, null, 2));
-    console.log("");
-  } catch (e) {
-    console.error(`Transform test failed: ${e.message}`);
-  }
-}
-
-// ── Public wizard entry point ────────────────────────────────────────────────
-
-export async function runWizard(report, sourceData) {
-  const rl = createRl();
-  const state = initWizardState(report, sourceData);
-
-  try {
-    state.passthrough = await askYesNo(rl, "Include all unmapped fields (passthrough)?", false);
-    const id = await ask(rl, "Mapping ID (optional)");
-    if (id) state.mappingId = id;
-
-    await runWizardLoop(rl, state);
-
-    while (true) {
-      const action = await runFinalScreen(rl, state);
-      if (action === "write") break;
-      if (action === "quit") {
-        rl.close();
-        return null;
-      }
-      if (action === "edit") {
-        await editField(rl, state);
-        continue;
-      }
-      if (action === "test") {
-        await testTransformPreview(state);
-        const back = await askChoice(rl, "Continue?", [
-          { key: "y", label: "return to preview", value: "y" },
-        ], 0);
-        if (back === "y") continue;
-      }
-    }
-
-    rl.close();
-
-    const answers = state.fields
-      .filter(f => !f.skipped)
-      .map(f => ({
-        sourceField: f.sourceField,
-        targetField: f.targetField,
-        feature: f.feature,
-        params: f.params,
-      }));
-
-    const opts = {};
-    if (state.mappingId) opts.id = state.mappingId;
-    if (state.passthrough) opts.passthrough = true;
-
-    return buildMapping(report, answers, opts);
-  } catch (e) {
-    rl.close();
-    throw e;
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  CLI
@@ -1214,16 +604,15 @@ USAGE
 
 OPTIONS
   --inspect <file>    Analyze source JSON and print field metadata report
-  -d, --data <file>   Input JSON file to build a mapping for
+  -d, --data <file>   Input JSON file to auto-generate a mapping for
   -o, --output <file> Output mapping file (default: stdout)
   --format js|json    Output format — js supports compute(), json does not
-  --auto              Non-interactive: generate best-guess mapping
   -h, --help          Show this help
 
 EXAMPLES
-  node mapping-builder.js --inspect test-data.json
-  node mapping-builder.js --data test-data.json --auto -o mapping.js
-  node mapping-builder.js --data test-data.json -o mapping.js --format json
+  node mapping-builder.js --inspect data.json
+  node mapping-builder.js --data data.json -o mapping.js
+  node mapping-builder.js --data data.json --format json -o mapping.json
 `);
 }
 
@@ -1319,8 +708,8 @@ async function main() {
     return;
   }
 
-  // ── Auto mode ───────────────────────────────────────────────────────
-  if (args.data && args.auto) {
+  // ── Auto-generate mapping from data ─────────────────────────────────────────
+  if (args.data) {
     const data = loadDataFile(args.data);
     const report = inspect(data);
     const mapping = buildMappingAuto(report);
@@ -1346,68 +735,10 @@ async function main() {
     return;
   }
 
-  // ── Interactive wizard mode ──────────────────────────────────────────────────────
-  if (args.data) {
-    const data = loadDataFile(args.data);
-    const report = inspect(data);
-
-    // Non-TTY fallback to auto mode
-    if (!process.stdin.isTTY) {
-      console.error("Non-interactive environment detected. Using --auto mode.");
-      const mapping = buildMappingAuto(report);
-      if (args.format === "json") validateForFormat(mapping, "json");
-      if (args.output) {
-        if (args.format === "json") exportJson(mapping, resolve(args.output));
-        else exportJs(mapping, resolve(args.output));
-        console.error(`Wrote ${args.format} mapping to ${resolve(args.output)}`);
-      } else {
-        if (args.format === "json") console.log(JSON.stringify(mapping, null, 2));
-        else console.log("export default " + JSON.stringify(mapping, null, 2) + ";");
-      }
-      return;
-    }
-
-    const mapping = await runWizard(report, data);
-    if (mapping === null) {
-      console.log("Quit without saving.");
-      return;
-    }
-
-    if (args.format === "json") {
-      validateForFormat(mapping, "json");
-    }
-
-    let outputPath = args.output;
-    if (!outputPath) {
-      const rl = createRl();
-      try {
-        outputPath = await ask(rl, "Output file path (press Enter for stdout)");
-      } finally {
-        rl.close();
-      }
-    }
-
-    if (outputPath) {
-      if (args.format === "json") {
-        exportJson(mapping, resolve(outputPath));
-      } else {
-        exportJs(mapping, resolve(outputPath));
-      }
-      console.error(`Wrote ${args.format} mapping to ${resolve(outputPath)}`);
-    } else {
-      if (args.format === "json") {
-        console.log(JSON.stringify(mapping, null, 2));
-      } else {
-        console.log("export default " + JSON.stringify(mapping, null, 2) + ";");
-      }
-    }
-    return;
-  }
-
   printHelp();
 }
 
-if (import.meta.main) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch(e => {
     console.error(`fatal: ${e.message}`);
     process.exit(1);

@@ -45,12 +45,13 @@ only declarative rules.
   - [Conditions](#conditions-if--then--else)
 - [API](#api)
 - [CLI](#cli)
+  - [Sampling a CSV (or JSON) file](#sampling-a-csv-or-json-file)
   - [CSV input](#csv-input)
 - [Mapping builder (`mapping-builder.js`)](#mapping-builder-mapping-builderjs)
   - [Inspect your data](#inspect-your-data)
-  - [Interactive wizard](#interactive-wizard)
   - [Auto-generate a mapping](#auto-generate-a-mapping)
   - [Programmatic API](#programmatic-api)
+- [Mapping Builder UI (`helper/`)](#mapping-builder-ui-helper)
 - [File structure](#file-structure)
 - [Limitations](#limitations)
 - [Future ideas](#future-ideas)
@@ -87,7 +88,7 @@ const output = transform(inputArray, myMapping);
 
 ## Examples
 
-Working example files are included for every major feature. Each pair below links a **data file** to its **mapping file** and shows the command to run it. Expected outputs are checked into `expected/` and exercised by `transform.test.js`.
+Working example files are included for every major feature. Each pair below links a **data file** to its **mapping file** and shows the command to run it. Expected outputs are checked into `examples/expected/` and exercised by `transform.test.js`.
 
 | Data | Mapping | Expected | What it demonstrates |
 |---|---|---|---|
@@ -104,13 +105,13 @@ Working example files are included for every major feature. Each pair below link
 Run any example:
 
 ```bash
-node cli.js transform -d test-data.json -m mapping-crm-example.js
+node cli.js transform -d examples/test-data.json -m examples/mapping-crm-example.js
 ```
 
 Compare to the checked-in expected output:
 
 ```bash
-diff <(node cli.js transform -d test-data.json -m mapping-crm-example.js) expected/expected-crm.json
+diff <(node cli.js transform -d examples/test-data.json -m examples/mapping-crm-example.js) examples/expected/expected-crm.json
 ```
 
 Run all example tests:
@@ -901,6 +902,26 @@ Mapping formats:
 - **`.js`** — full mapping with `compute()` functions (ES modules, `export default`)
 - **`.json`** — pure declarative mapping, serializable and shareable (no `compute()`)
 
+### Sampling a CSV (or JSON) file
+
+Use `--sample` to extract the first N rows of any data file as a JSON array. This is useful for quickly inspecting raw CSV content or generating a small test fixture before you write a mapping.
+
+```bash
+# Print the first 5 rows of a CSV as JSON
+node cli.js --sample data.csv
+
+# Write the sample to a file
+node cli.js --sample data.csv -o sample.json
+
+# Change the row count
+node cli.js --sample data.csv --head 10 -o sample.json
+
+# Works on JSON arrays too
+node cli.js --sample data.json --head 2
+```
+
+The `--head` option defaults to `5`. All CSV values are strings (same as in transform mode) — `--sample` does not apply any mapping or formatting.
+
 ### CSV input
 
 The CLI accepts `.csv` files as input. The first row is treated as the header and becomes the field names for each record. Quoted fields, embedded commas, and embedded newlines are all handled correctly.
@@ -920,14 +941,14 @@ Empty cells (`,,`) become empty strings `""` rather than `null` or `undefined`. 
 
 ## Mapping builder (`mapping-builder.js`)
 
-A companion tool that inspects source JSON and generates mapping files automatically. Use it to bootstrap a mapping from sample data instead of writing one by hand.
+A companion tool that inspects source JSON and auto-generates mapping files. Use it to bootstrap a mapping from sample data instead of writing one by hand.
 
 ### Inspect your data
 
 Discover the shape of any JSON file — fields, types, distinct values, ranges:
 
 ```bash
-node mapping-builder.js --inspect test-data.json
+node mapping-builder.js --inspect examples/test-data.json
 ```
 
 Output:
@@ -949,41 +970,12 @@ Fields discovered: 9
 
 For a machine-readable report, add `-o report.json`.
 
-### Interactive wizard
-
-Run without `--auto` to launch a guided field-by-field prompt:
-
-```bash
-node mapping-builder.js --data test-data.json -o mapping.js
-```
-
-The wizard walks you through each discovered field with smart defaults:
-- Target field names pre-filled as `snake_case`
-- Date strings pre-selected for `format: "date"`
-- Decimal numeric strings pre-selected for `format: "number"`
-- Arrays launch a **recursive sub-wizard** for their sub-fields
-
-At each field you can:
-- **[a]** accept the default
-- **[c]** customize: pick from rename, format, map, template, if/then/else, coalesce, value, default, forEach, compute
-- **[s]** skip the field
-- **[b]** go back to the previous field
-- **[p]** preview the mapping built so far
-
-On the preview screen:
-- **[w]** write to file
-- **[e]** edit a specific field
-- **[t]** test-transform the first 3 records to verify output
-- **[q]** quit without saving
-
-Non-TTY environments (piped stdin, CI) automatically fall back to `--auto` mode.
-
 ### Auto-generate a mapping
 
-Generate a best-guess mapping with `--auto`:
+Generate a best-guess mapping from a data file:
 
 ```bash
-node mapping-builder.js --data test-data.json --auto -o mapping.js
+node mapping-builder.js --data examples/test-data.json -o mapping.js
 ```
 
 Rules applied automatically:
@@ -996,13 +988,13 @@ Rules applied automatically:
 Verify the generated mapping works:
 
 ```bash
-node cli.js transform -d test-data.json -m mapping.js
+node cli.js transform -d examples/test-data.json -m mapping.js
 ```
 
 Export as `.json` instead of `.js` (serializable, no `compute`):
 
 ```bash
-node mapping-builder.js --data test-data.json --auto --format json -o mapping.json
+node mapping-builder.js --data examples/test-data.json --format json -o mapping.json
 ```
 
 ### Programmatic API
@@ -1040,48 +1032,79 @@ const mapping = buildMapping(report, [
 
 Supported features in `buildMapping()`: `from`, `rename`, `format`, `map`, `compute`, `if`, `forEach`, `aggregate`, `flatten`, `groupBy`, `distinct`, `filter`, `sortBy`, `template`, `coalesce`, `lookup`, `value`, `default`, `passthrough`, `schema`.
 
+## Mapping Builder UI (`helper/`)
+
+A standalone browser-based UI for building and testing mapping files visually — no build step or npm install required. Open `helper/index.html` directly in any modern browser.
+
+See **[helper/README.md](helper/README.md)** for full documentation, including the feature list, keyboard shortcuts, and how to load sample data.
+
+### Keeping `transform-browser.js` in sync
+
+The UI uses `helper/transform-browser.js` — a browser port of the engine that exports via `window.JsonTransformer` instead of ES module exports, and replaces Node.js `fs`/`path` APIs with browser-safe equivalents. It also sandboxes `compute` functions (string-based, 500 ms timeout) since `eval`/`new Function` runs in the browser context.
+
+**Any change to the core transformation logic in `transform.js` must be mirrored in `helper/transform-browser.js`**, and vice versa. The two files share the same algorithm — divergence causes mappings that work in the CLI to behave differently in the UI, or vice versa.
+
+Key differences to maintain parity for:
+- `formatDate` / `isValidIsoDate` — date normalization and formatting
+- `transformField`, `transformOne`, `transformAggregate` — core mapping logic
+- `evaluateCondition` — condition operators (`eq`, `in`, `matches`, etc.)
+- `prepareMapping` — dictionary loading (browser version is inline-only; `$file` is not supported in the UI)
+
 ## File structure
 
 ```
 json-transformer/
 ├── transform.js               # Core engine (import this)
 ├── cli.js                     # CLI tool
-├── transform.test.js           # End-to-end tests: runs every example mapping against expected output
+├── transform.test.js          # End-to-end tests: runs every example mapping against expected output
 ├── mapping-builder.js         # Mapping generator: inspect data and build mappings
 ├── mapping-builder.test.js    # Unit tests for mapping-builder.js (run with `node --test`)
-├── expected/                  # Checked-in expected output for every example mapping
-│   ├── expected-crm.json
-│   ├── expected-nested.js.json
-│   ├── expected-nested.json
-│   ├── expected-order-summary.json
-│   ├── expected-shaping.json
-│   ├── expected-data-cleaning.json
-│   ├── expected-timesheet.json
-│   ├── expected-employee.json
-│   └── expected-validated.json
-├── mapping-crm-example.js     # Example: CRM migration (JS)
-├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
-├── mapping-employee.js        # Example: composite conditions
-├── mapping-nested.js          # Example: nested objects & forEach
-├── mapping-nested.json        # Same mapping, pure JSON (no compute)
-├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
-├── mapping-shaping.js         # Example: flatten and groupBy (with filter, distinct, aggregate)
-├── test-shaping.json          # Sample store/order/item data (for shaping demo)
-├── mapping-validated.js       # Example: schema validation (all rule types)
-├── mapping-data-cleaning.js   # Example: passthrough, template, coalesce, round, split, join, truncate, replace, casing
-├── mapping-timesheet.js       # Example: dictionary lookups (inline + $file)
+├── csv-parser.test.js         # Unit tests for the CSV parser
 ├── demo.js                    # In-Node demo
 ├── demo-composite.js          # Composite condition demo
-├── test-data.json             # Sample flat data
-├── test-nested.json           # Sample nested data
-├── test-order-summary.json    # Sample order data (for aggregation/filter/sort demo)
-├── test-invalid.json          # Sample data with intentional errors (for validation demo)
-├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
-├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
-├── test-employees.csv         # Sample employee data in CSV format (for CSV input demo)
-├── dictionaries/
-│   ├── employees.json         # Employee reference data (indexed by employee_id)
-│   └── departments.json       # Department reference data (indexed by code)
+├── examples/                  # Sample mappings, test data, and expected outputs
+│   ├── mapping-crm-example.js     # Example: CRM migration (JS)
+│   ├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
+│   ├── mapping-employee.js        # Example: composite conditions
+│   ├── mapping-nested.js          # Example: nested objects & forEach
+│   ├── mapping-nested.json        # Same mapping, pure JSON (no compute)
+│   ├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
+│   ├── mapping-shaping.js         # Example: flatten and groupBy (with filter, distinct, aggregate)
+│   ├── mapping-validated.js       # Example: schema validation (all rule types)
+│   ├── mapping-data-cleaning.js   # Example: passthrough, template, coalesce, round, split, join, truncate, replace, casing
+│   ├── mapping-timesheet.js       # Example: dictionary lookups (inline + $file)
+│   ├── test-data.json             # Sample flat data
+│   ├── test-nested.json           # Sample nested data
+│   ├── test-order-summary.json    # Sample order data (for aggregation/filter/sort demo)
+│   ├── test-shaping.json          # Sample store/order/item data (for shaping demo)
+│   ├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
+│   ├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
+│   ├── test-employees.csv         # Sample employee data in CSV format (for CSV input demo)
+│   ├── test-invalid.json          # Sample data with intentional errors (for validation demo)
+│   ├── dictionaries/
+│   │   ├── employees.json         # Employee reference data (indexed by employee_id)
+│   │   └── departments.json       # Department reference data (indexed by code)
+│   └── expected/                  # Checked-in expected output for every example mapping
+│       ├── expected-crm.json
+│       ├── expected-nested.js.json
+│       ├── expected-nested.json
+│       ├── expected-order-summary.json
+│       ├── expected-shaping.json
+│       ├── expected-data-cleaning.json
+│       ├── expected-timesheet.json
+│       ├── expected-employee.json
+│       └── expected-validated.json
+├── helper/                    # Browser-based mapping builder UI (open index.html directly)
+│   ├── index.html             # Entry point — open in browser, no server required
+│   ├── transform-browser.js   # Browser port of transform.js — keep in sync with transform.js
+│   ├── app.js                 # Preact UI application
+│   ├── mapping-features.js    # Visual mapping feature definitions and validation
+│   ├── sample-mappings.js     # Bundled sample mapping catalog
+│   ├── styles.css             # Layout and component styles
+│   ├── preact.js              # Inlined Preact 10.x (no CDN)
+│   ├── preact-hooks.js        # Inlined Preact hooks (no CDN)
+│   ├── samples/               # Sample mapping and data files for the UI
+│   └── README.md              # Full UI documentation
 ├── docs/                      # Design analyses and RFCs
 │   ├── cross-row-computations.md
 │   └── streaming-support.md

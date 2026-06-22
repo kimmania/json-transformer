@@ -2,7 +2,7 @@
  * Test composite conditions (and/or/not)
  */
 import { transform } from "./transform.js";
-import employeeMapping from "./mapping-employee.js";
+import employeeMapping from "./examples/mapping-employee.js";
 
 const employees = [
   {

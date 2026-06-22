@@ -18,7 +18,7 @@ function runTransform(dataFile, mappingFile) {
   const result = spawnSync(
     process.execPath,
     [path.join(__dirname, "cli.js"), "transform", "-d", dataFile, "-m", mappingFile],
-    { cwd: __dirname, encoding: "utf-8" }
+    { cwd: path.join(__dirname, "examples"), encoding: "utf-8" }
   );
   if (result.status !== 0) {
     throw new Error(`transform failed:\n${result.stderr}`);
@@ -27,7 +27,7 @@ function runTransform(dataFile, mappingFile) {
 }
 
 function loadExpected(name) {
-  const p = path.join(__dirname, "expected", name);
+  const p = path.join(__dirname, "examples", "expected", name);
   return JSON.parse(readFileSync(p, "utf-8"));
 }
 

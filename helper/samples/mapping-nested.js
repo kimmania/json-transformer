@@ -1,0 +1,56 @@
+/**
+ * Nested mapping example — uses compute() so must be a .js file
+ */
+export default {
+  id: "nested-order-test",
+  fields: {
+    "id": { from: "order_id" },
+    "customer.name": { from: "customer.FullName", format: "uppercase" },
+    "customer.email": { from: "customer.Email", format: "lowercase" },
+
+    // ── forEach: transform an array of nested objects ─────
+    items: {
+      forEach: "LineItems",
+      fields: {
+        product_code: { from: "SKU" },
+        quantity: { from: "Qty", format: "number" },
+        unit_price: { from: "Price", format: "number" },
+        line_total: {
+          from: ["Price", "Qty"],
+          compute: (price, qty) => parseFloat(price) * qty,
+        },
+      },
+    },
+
+    // ── Nested sub-mapping: shipping ─────────────────────
+    shipping: {
+      fields: {
+        city: { from: "ship_city", format: "uppercase" },
+        state: { from: "ship_state" },
+        zip: { from: "ship_zip", map: { "10001": "10xxx" } },
+      },
+    },
+
+    order_total: { from: "grand_total", format: "number" },
+
+    ship_date: {
+      from: "date_shipped",
+      format: "date",
+      outputFormat: "MMMM DD, YYYY",
+    },
+
+    // ── Composite condition with dot-path ────────────────
+    priority: {
+      if: {
+        and: [
+          { field: "customer.FullName", op: "exists", value: true },
+          { field: "grand_total", op: "gte", value: 500 },
+        ],
+      },
+      then: "high",
+      else: "standard",
+    },
+
+    meta: { value: "transformed" },
+  },
+};
