@@ -88,7 +88,7 @@ const output = transform(inputArray, myMapping);
 
 ## Examples
 
-Working example files are included for every major feature. Each pair below links a **data file** to its **mapping file** and shows the command to run it. Expected outputs are checked into `expected/` and exercised by `transform.test.js`.
+Working example files are included for every major feature. Each pair below links a **data file** to its **mapping file** and shows the command to run it. Expected outputs are checked into `examples/expected/` and exercised by `transform.test.js`.
 
 | Data | Mapping | Expected | What it demonstrates |
 |---|---|---|---|
@@ -105,13 +105,13 @@ Working example files are included for every major feature. Each pair below link
 Run any example:
 
 ```bash
-node cli.js transform -d test-data.json -m mapping-crm-example.js
+node cli.js transform -d examples/test-data.json -m examples/mapping-crm-example.js
 ```
 
 Compare to the checked-in expected output:
 
 ```bash
-diff <(node cli.js transform -d test-data.json -m mapping-crm-example.js) expected/expected-crm.json
+diff <(node cli.js transform -d examples/test-data.json -m examples/mapping-crm-example.js) examples/expected/expected-crm.json
 ```
 
 Run all example tests:
@@ -948,7 +948,7 @@ A companion tool that inspects source JSON and generates mapping files automatic
 Discover the shape of any JSON file — fields, types, distinct values, ranges:
 
 ```bash
-node mapping-builder.js --inspect test-data.json
+node mapping-builder.js --inspect examples/test-data.json
 ```
 
 Output:
@@ -975,7 +975,7 @@ For a machine-readable report, add `-o report.json`.
 Run without `--auto` to launch a guided field-by-field prompt:
 
 ```bash
-node mapping-builder.js --data test-data.json -o mapping.js
+node mapping-builder.js --data examples/test-data.json -o mapping.js
 ```
 
 The wizard walks you through each discovered field with smart defaults:
@@ -1004,7 +1004,7 @@ Non-TTY environments (piped stdin, CI) automatically fall back to `--auto` mode.
 Generate a best-guess mapping with `--auto`:
 
 ```bash
-node mapping-builder.js --data test-data.json --auto -o mapping.js
+node mapping-builder.js --data examples/test-data.json --auto -o mapping.js
 ```
 
 Rules applied automatically:
@@ -1017,13 +1017,13 @@ Rules applied automatically:
 Verify the generated mapping works:
 
 ```bash
-node cli.js transform -d test-data.json -m mapping.js
+node cli.js transform -d examples/test-data.json -m mapping.js
 ```
 
 Export as `.json` instead of `.js` (serializable, no `compute`):
 
 ```bash
-node mapping-builder.js --data test-data.json --auto --format json -o mapping.json
+node mapping-builder.js --data examples/test-data.json --auto --format json -o mapping.json
 ```
 
 ### Programmatic API
@@ -1067,42 +1067,44 @@ Supported features in `buildMapping()`: `from`, `rename`, `format`, `map`, `comp
 json-transformer/
 ├── transform.js               # Core engine (import this)
 ├── cli.js                     # CLI tool
-├── transform.test.js           # End-to-end tests: runs every example mapping against expected output
+├── transform.test.js          # End-to-end tests: runs every example mapping against expected output
 ├── mapping-builder.js         # Mapping generator: inspect data and build mappings
 ├── mapping-builder.test.js    # Unit tests for mapping-builder.js (run with `node --test`)
-├── expected/                  # Checked-in expected output for every example mapping
-│   ├── expected-crm.json
-│   ├── expected-nested.js.json
-│   ├── expected-nested.json
-│   ├── expected-order-summary.json
-│   ├── expected-shaping.json
-│   ├── expected-data-cleaning.json
-│   ├── expected-timesheet.json
-│   ├── expected-employee.json
-│   └── expected-validated.json
-├── mapping-crm-example.js     # Example: CRM migration (JS)
-├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
-├── mapping-employee.js        # Example: composite conditions
-├── mapping-nested.js          # Example: nested objects & forEach
-├── mapping-nested.json        # Same mapping, pure JSON (no compute)
-├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
-├── mapping-shaping.js         # Example: flatten and groupBy (with filter, distinct, aggregate)
-├── test-shaping.json          # Sample store/order/item data (for shaping demo)
-├── mapping-validated.js       # Example: schema validation (all rule types)
-├── mapping-data-cleaning.js   # Example: passthrough, template, coalesce, round, split, join, truncate, replace, casing
-├── mapping-timesheet.js       # Example: dictionary lookups (inline + $file)
+├── csv-parser.test.js         # Unit tests for the CSV parser
 ├── demo.js                    # In-Node demo
 ├── demo-composite.js          # Composite condition demo
-├── test-data.json             # Sample flat data
-├── test-nested.json           # Sample nested data
-├── test-order-summary.json    # Sample order data (for aggregation/filter/sort demo)
-├── test-invalid.json          # Sample data with intentional errors (for validation demo)
-├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
-├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
-├── test-employees.csv         # Sample employee data in CSV format (for CSV input demo)
-├── dictionaries/
-│   ├── employees.json         # Employee reference data (indexed by employee_id)
-│   └── departments.json       # Department reference data (indexed by code)
+├── examples/                  # Sample mappings, test data, and expected outputs
+│   ├── mapping-crm-example.js     # Example: CRM migration (JS)
+│   ├── mapping-crm-example.json   # Same mapping, pure JSON (no compute)
+│   ├── mapping-employee.js        # Example: composite conditions
+│   ├── mapping-nested.js          # Example: nested objects & forEach
+│   ├── mapping-nested.json        # Same mapping, pure JSON (no compute)
+│   ├── mapping-order-summary.js   # Example: aggregation, filter, sortBy
+│   ├── mapping-shaping.js         # Example: flatten and groupBy (with filter, distinct, aggregate)
+│   ├── mapping-validated.js       # Example: schema validation (all rule types)
+│   ├── mapping-data-cleaning.js   # Example: passthrough, template, coalesce, round, split, join, truncate, replace, casing
+│   ├── mapping-timesheet.js       # Example: dictionary lookups (inline + $file)
+│   ├── test-data.json             # Sample flat data
+│   ├── test-nested.json           # Sample nested data
+│   ├── test-order-summary.json    # Sample order data (for aggregation/filter/sort demo)
+│   ├── test-shaping.json          # Sample store/order/item data (for shaping demo)
+│   ├── test-data-cleaning.json    # Sample contact data (for data-cleaning demo)
+│   ├── test-timesheet.json        # Sample timesheet data (for dictionary demo)
+│   ├── test-employees.csv         # Sample employee data in CSV format (for CSV input demo)
+│   ├── test-invalid.json          # Sample data with intentional errors (for validation demo)
+│   ├── dictionaries/
+│   │   ├── employees.json         # Employee reference data (indexed by employee_id)
+│   │   └── departments.json       # Department reference data (indexed by code)
+│   └── expected/                  # Checked-in expected output for every example mapping
+│       ├── expected-crm.json
+│       ├── expected-nested.js.json
+│       ├── expected-nested.json
+│       ├── expected-order-summary.json
+│       ├── expected-shaping.json
+│       ├── expected-data-cleaning.json
+│       ├── expected-timesheet.json
+│       ├── expected-employee.json
+│       └── expected-validated.json
 ├── docs/                      # Design analyses and RFCs
 │   ├── cross-row-computations.md
 │   └── streaming-support.md

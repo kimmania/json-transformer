@@ -3,7 +3,7 @@
  * or just:  node demo.js (works in Node 22+ with ES modules)
  */
 import { transform, transformOne } from "./transform.js";
-import crmMigration from "./mapping-crm-example.js";
+import crmMigration from "./examples/mapping-crm-example.js";
 
 // ── Sample source data ────────────────────────────────────────
 const source = [
