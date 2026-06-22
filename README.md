@@ -45,6 +45,7 @@ only declarative rules.
   - [Conditions](#conditions-if--then--else)
 - [API](#api)
 - [CLI](#cli)
+  - [Sampling a CSV (or JSON) file](#sampling-a-csv-or-json-file)
   - [CSV input](#csv-input)
 - [Mapping builder (`mapping-builder.js`)](#mapping-builder-mapping-builderjs)
   - [Inspect your data](#inspect-your-data)
@@ -900,6 +901,26 @@ node cli.js transform -d data.json -m mapping.js --compact
 Mapping formats:
 - **`.js`** — full mapping with `compute()` functions (ES modules, `export default`)
 - **`.json`** — pure declarative mapping, serializable and shareable (no `compute()`)
+
+### Sampling a CSV (or JSON) file
+
+Use `--sample` to extract the first N rows of any data file as a JSON array. This is useful for quickly inspecting raw CSV content or generating a small test fixture before you write a mapping.
+
+```bash
+# Print the first 5 rows of a CSV as JSON
+node cli.js --sample data.csv
+
+# Write the sample to a file
+node cli.js --sample data.csv -o sample.json
+
+# Change the row count
+node cli.js --sample data.csv --head 10 -o sample.json
+
+# Works on JSON arrays too
+node cli.js --sample data.json --head 2
+```
+
+The `--head` option defaults to `5`. All CSV values are strings (same as in transform mode) — `--sample` does not apply any mapping or formatting.
 
 ### CSV input
 
