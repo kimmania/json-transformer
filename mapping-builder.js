@@ -137,7 +137,7 @@ export function inspect(data, opts = {}) {
     const info = { ...meta };
     if (distinctMap[field]) {
       info.distinctValues = [...distinctMap[field]];
-      if (info.distinctValues.length <= 10) info.distinctValues = info.distinctValues;
+      if (info.distinctValues.length > maxDistinctValues) info.distinctValues = info.distinctValues.slice(0, maxDistinctValues);
     }
     if (numValues[field]) {
       info.min = numValues[field].min;
