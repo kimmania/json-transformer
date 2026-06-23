@@ -4124,6 +4124,32 @@
       reader.readAsText(file);
     }
 
+    // Inspection report loading
+    var inspFileInputRef = useRef(null);
+
+    function handleInspectionLoad(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        try {
+          var data = JSON.parse(ev.target.result);
+          if (!data.fields || typeof data.fields !== "object") {
+            showToast("Not a valid inspection report (missing 'fields')", "error");
+            return;
+          }
+          setInspection(data);
+          showToast("Loaded inspection: " + Object.keys(data.fields).length + " fields", "success");
+        } catch (err) {
+          showToast("Failed to parse inspection file: " + err.message, "error");
+        } finally {
+          e.target.value = "";
+        }
+      };
+      reader.onerror = function () { showToast("Failed to read file", "error"); e.target.value = ""; };
+      reader.readAsText(file);
+    }
+
     // Export
     function exportMapping() {
       var mapping;
@@ -4529,6 +4555,18 @@
             accept: ".json,application/json",
             style: { display: "none" },
             onChange: handleFileLoad,
+          }),
+          h("button", {
+            className: "btn btn-secondary",
+            "data-tooltip": "Load a saved --inspect report to populate field suggestions without loading full data",
+            onClick: function () { return inspFileInputRef.current.click(); },
+          }, "\uD83D\uDD0D Load Inspection"),
+          h("input", {
+            ref: inspFileInputRef,
+            type: "file",
+            accept: ".json,application/json",
+            style: { display: "none" },
+            onChange: handleInspectionLoad,
           }),
           h("button", {
             className: "btn btn-secondary",

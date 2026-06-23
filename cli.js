@@ -268,7 +268,7 @@ async function main(rawArgs) {
       }
     }
 
-    const report = inspect(data);
+    const report = inspect(data, args.output ? { maxDistinctValues: 50 } : {});
     const output = args.output
       ? JSON.stringify(report, null, 2)
       : formatInspectReport(report);

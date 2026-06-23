@@ -44,6 +44,16 @@ node ../cli.js transform -d your-data.json -m your-mapping.js
 - **Validation** — missing targets, unknown source paths, empty nested mappings.
 - **Undo / redo** — in visual mode.
 
+### Loading a field inspection report
+
+When your source file is too large to load directly in the browser, you can generate a field inspection report with the CLI and load that instead:
+
+```bash
+node ../cli.js --inspect your-data.csv -o inspect.json
+```
+
+Then click **🔍 Load Inspection** and select the `inspect.json` file. This populates all field suggestions, the DataInspector summary, and value map helpers without loading any raw records. You can still build and export a complete mapping — the live preview will be blank until source data is also loaded.
+
 ### Source data panel
 
 - Collapsible tree with type badges and inline previews.
