@@ -34,6 +34,7 @@ only declarative rules.
 - [Mapping definition](#mapping-definition)
   - [Schema validation](#schema-validation-schema)
   - [Passthrough](#passthrough)
+  - [Empty string normalization](#empty-string-normalization-emptystringasnull)
   - [Field definition options](#field-definition-options)
   - [Dot-paths](#dot-paths-nested-source-and-target)
   - [Nested sub-mappings](#nested-sub-mappings-fields-blocks)
@@ -232,6 +233,25 @@ export default {
 ```
 
 `include` and `exclude` are mutually exclusive — when `include` is set it takes precedence.
+
+### Empty string normalization (`emptyStringAsNull`)
+
+Set `emptyStringAsNull: true` at the mapping level to convert every empty string `""` in the source data to `null` before any field processing runs. This is particularly useful when working with CSV files, where missing values arrive as empty strings rather than `null`.
+
+```javascript
+export default {
+  emptyStringAsNull: true,
+  fields: {
+    name:  { from: "Name" },
+    phone: { from: "Phone" },          // "" → null
+    score: { from: "Score", format: "number" },
+  },
+};
+```
+
+With this set, `default`, `map`, `coalesce`, format rules, and conditions all see `null` rather than `""` for blank source fields — so a `default` fallback will trigger, an `exists` condition will correctly return false, and a `truthy` condition will also be false.
+
+The normalization applies recursively to nested objects and arrays within each source record.
 
 ### Field definition options
 
@@ -959,7 +979,7 @@ salary: { from: "Salary", format: "number" },
 active: { from: "IsActive", format: "boolean" },
 ```
 
-Empty cells (`,,`) become empty strings `""` rather than `null` or `undefined`. This means an `exists` condition will return `true` for an empty cell — use `{ field: "Phone", op: "truthy" }` instead if you want to treat blank cells as absent.
+Empty cells (`,,`) become empty strings `""` rather than `null` or `undefined`. This means an `exists` condition will return `true` for an empty cell — use `{ field: "Phone", op: "truthy" }` instead if you want to treat blank cells as absent. Alternatively, set [`emptyStringAsNull: true`](#empty-string-normalization-emptystringasnull) on the mapping to globally convert all empty strings to `null` before any field processing.
 
 > **Production recommendation:** the built-in CSV parser is lightweight and loads the entire file into memory. For very large files (hundreds of MB or more) or complex CSV edge cases (e.g. custom delimiters, multi-character escape sequences, or strict RFC 4180 conformance requirements), use a dedicated streaming parser such as [`csv-parse`](https://csv.js.org/parse/) or [`papaparse`](https://www.papaparse.com/) and pipe the parsed records into `transform()` programmatically rather than via the CLI.
 

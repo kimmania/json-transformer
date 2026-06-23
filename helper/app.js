@@ -325,24 +325,26 @@
     return MF ? MF.visualFieldsFromMapping(mapping) : [];
   }
 
-  function buildMappingFromVisual(fields, passthrough, meta) {
+  function buildMappingFromVisual(fields, passthrough, meta, emptyStringAsNull) {
     if (!MF) return { fields: {} };
     return MF.buildFullMapping(fields, {
       passthrough: passthrough === true,
+      emptyStringAsNull: emptyStringAsNull === true,
       meta: meta || {},
     });
   }
 
-  function resolveActiveMapping(editorMode, mappingFields, codeEditorValue, passthrough, mappingMeta, codeSnapshot) {
+  function resolveActiveMapping(editorMode, mappingFields, codeEditorValue, passthrough, mappingMeta, codeSnapshot, emptyStringAsNull) {
     if (!MF) return null;
     if (editorMode === "visual") {
       if (codeSnapshot && codeSnapshot.mapping) {
         return MF.mergeVisualFieldsIntoMapping(mappingFields, codeSnapshot.mapping, {
           passthrough: passthrough === true,
+          emptyStringAsNull: emptyStringAsNull === true,
           meta: mappingMeta,
         });
       }
-      return buildMappingFromVisual(mappingFields, passthrough, mappingMeta);
+      return buildMappingFromVisual(mappingFields, passthrough, mappingMeta, emptyStringAsNull);
     }
     if (!codeEditorValue || !String(codeEditorValue).trim()) return null;
     if (editorMode === "json") {
@@ -395,6 +397,7 @@
       mappingFields: useCodeEditor ? [] : visualFields,
       fieldSummary: MF.fieldSummaryFromMapping(mapping),
       passthrough: MF.passthroughToBool(meta.passthrough),
+      emptyStringAsNull: !!meta.emptyStringAsNull,
       toast: useCodeEditor
         ? {
           message: "Imported " + fileName + " (" + fieldCount + " fields, " + advancedCount + " advanced). Edit in " + (isJs ? "JS" : "JSON") + " mode; see field list below.",
@@ -2252,6 +2255,8 @@
     var inspection = props.inspection;
     var passthrough = props.passthrough;
     var onPassthroughChange = props.onPassthroughChange;
+    var emptyStringAsNull = props.emptyStringAsNull;
+    var onEmptyStringAsNullChange = props.onEmptyStringAsNullChange;
     var sourceData = props.sourceData;
     var validationErrors = props.validationErrors || [];
 
@@ -2303,6 +2308,17 @@
             onChange: function (e) { onPassthroughChange(e.target.checked); },
           }),
           " Passthrough (include unmapped source fields)"
+        ),
+        h("label", {
+          className: "mapping-passthrough",
+          "data-tooltip": "Treat empty string values in source data as null",
+        },
+          h("input", {
+            type: "checkbox",
+            checked: !!emptyStringAsNull,
+            onChange: function (e) { onEmptyStringAsNullChange(e.target.checked); },
+          }),
+          " Treat empty strings as null"
         ),
         h("button", { type: "button", className: "btn btn-sm btn-primary", onClick: addField }, "+ Add Field")
       ),
@@ -3909,6 +3925,7 @@
     }), autosavePref = _useState12[0], setAutosavePref = _useState12[1];
     var _useState13 = useState(false), passthrough = _useState13[0], setPassthrough = _useState13[1];
     var _useState13b = useState({}), mappingMeta = _useState13b[0], setMappingMeta = _useState13b[1];
+    var _useState13c = useState(false), emptyStringAsNull = _useState13c[0], setEmptyStringAsNull = _useState13c[1];
     var _useState14 = useState(5), previewLimit = _useState14[0], setPreviewLimit = _useState14[1];
     var _useState15 = useState(null), expectedOutput = _useState15[0], setExpectedOutput = _useState15[1];
     var _useState16 = useState([]), mappingValidationErrors = _useState16[0], setMappingValidationErrors = _useState16[1];
@@ -4002,6 +4019,7 @@
           if (parsed.fields) setMappingFields(parsed.fields);
           if (parsed.passthrough) setPassthrough(MF ? MF.passthroughToBool(parsed.passthrough) : true);
           if (parsed.mappingMeta) setMappingMeta(parsed.mappingMeta);
+          if (parsed.emptyStringAsNull) setEmptyStringAsNull(true);
           if (parsed.code) {
             setCodeEditorValue(parsed.code);
             if (parsed.mode) setEditorMode(parsed.mode);
@@ -4020,6 +4038,7 @@
           mode: editorMode,
           passthrough: passthrough,
           mappingMeta: mappingMeta,
+          emptyStringAsNull: emptyStringAsNull,
         };
         try {
           localStorage.setItem("jt-mapping", JSON.stringify(state));
@@ -4029,7 +4048,7 @@
           showToast("Auto-save unavailable — export your mapping before leaving.", "warning", 8000);
         }
       }
-    }, [mappingFields, codeEditorValue, editorMode, autosavePref, passthrough, mappingMeta]);
+    }, [mappingFields, codeEditorValue, editorMode, autosavePref, passthrough, mappingMeta, emptyStringAsNull]);
 
     useEffect(function () {
       if (editorMode === "visual" && sourceData && MF) {
@@ -4055,7 +4074,8 @@
             codeEditorValue,
             passthrough,
             mappingMeta,
-            codeSnapshotRef.current
+            codeSnapshotRef.current,
+            emptyStringAsNull
           );
 
           if (!mapping || !mapping.fields) {
@@ -4179,7 +4199,8 @@
           codeEditorValue,
           passthrough,
           mappingMeta,
-          codeSnapshotRef.current
+          codeSnapshotRef.current,
+          emptyStringAsNull
         );
       } catch (e) {
         showToast("Cannot export: invalid mapping (" + e.message + ")", "error");
@@ -4218,7 +4239,8 @@
           codeEditorValue,
           passthrough,
           mappingMeta,
-          codeSnapshotRef.current
+          codeSnapshotRef.current,
+          emptyStringAsNull
         );
       } catch (e) {
         showToast("Cannot copy: invalid mapping (" + e.message + ")", "error");
@@ -4263,6 +4285,7 @@
           };
           setMappingMeta(result.meta);
           setPassthrough(result.passthrough);
+          setEmptyStringAsNull(result.emptyStringAsNull);
           setEditorMode(result.editorMode);
           setCodeEditorValue(result.codeEditorValue);
           setMappingFields(result.mappingFields);
@@ -4519,6 +4542,7 @@
       setPreviewErrors([]);
       setExpectedOutput(null);
       setPassthrough(false);
+      setEmptyStringAsNull(false);
       setMappingMeta({});
       setImportedFieldSummary([]);
       setMappingValidationErrors([]);
@@ -4697,6 +4721,8 @@
                     inspection: inspection,
                     passthrough: passthrough,
                     onPassthroughChange: setPassthrough,
+                    emptyStringAsNull: emptyStringAsNull,
+                    onEmptyStringAsNullChange: setEmptyStringAsNull,
                     sourceData: sourceData,
                     validationErrors: mappingValidationErrors,
                   })

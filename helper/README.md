@@ -37,12 +37,14 @@ node ../cli.js transform -d your-data.json -m your-mapping.js
 | Nested objects | Yes |
 | Compute (expression string) | Yes — templates + custom `return …` |
 | Passthrough | Yes — global toggle |
+| Empty string → null (`emptyStringAsNull`) | Yes — global toggle |
 | Conditions (`if` / `and` / `or`) | View only — edit in JSON/JS |
 | `groupBy`, `flatten`, aggregates, etc. | View only — edit in JSON/JS |
 | Compute as arrow functions | JS mode only |
 
 - **Validation** — missing targets, unknown source paths, empty nested mappings.
 - **Undo / redo** — in visual mode.
+- **Mapping-level toggles** — **Passthrough** (include unmapped source fields) and **Treat empty strings as null** (`emptyStringAsNull`) appear as checkboxes above the field list in Visual mode. Both are preserved when exporting or switching editor modes.
 
 ### Loading a field inspection report
 

@@ -281,6 +281,17 @@
 
   // ── Core transform ───────────────────────────────────────────────────
 
+  function normalizeEmptyStrings(val) {
+    if (val === "") return null;
+    if (Array.isArray(val)) return val.map(normalizeEmptyStrings);
+    if (val !== null && typeof val === "object") {
+      var out = {};
+      for (var k in val) if (Object.prototype.hasOwnProperty.call(val, k)) out[k] = normalizeEmptyStrings(val[k]);
+      return out;
+    }
+    return val;
+  }
+
   function transformField(sourceRow, fieldDef, dictionaries) {
     // 0. Nested sub-mapping (recursive)
     if ("fields" in fieldDef && typeof fieldDef.fields === "object") {
@@ -501,6 +512,7 @@
 
   function transformOne(sourceRow, mapping, dictionaries) {
     const dicts = mapping.dictionaries || dictionaries;
+    if (mapping.emptyStringAsNull) sourceRow = normalizeEmptyStrings(sourceRow);
     const result = {};
     if (mapping.passthrough) {
       const pt = mapping.passthrough;
