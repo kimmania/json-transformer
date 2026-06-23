@@ -922,6 +922,30 @@ node cli.js --sample data.json --head 2
 
 The `--head` option defaults to `5`. All CSV values are strings (same as in transform mode) — `--sample` does not apply any mapping or formatting.
 
+### Converting a CSV (or JSON) file to JSON
+
+Use `--convert` to turn a CSV file (or a JSON array) into a plain JSON file with no mapping applied. Each CSV row becomes a JSON object with string values.
+
+```bash
+# Convert a CSV to JSON and print to stdout
+node cli.js --convert data.csv
+
+# Write to a file
+node cli.js --convert data.csv -o data.json
+
+# Compact output (no whitespace)
+node cli.js --convert data.csv --compact -o data.json
+```
+
+When the output file is specified and the data exceeds 200,000 records, the output is automatically split into numbered files:
+
+```bash
+node cli.js --convert large.csv -o output.json
+# writes output-1.json, output-2.json, … (up to 200,000 records each)
+```
+
+If no output file is given, all records are streamed to stdout as a single JSON array regardless of size.
+
 ### CSV input
 
 The CLI accepts `.csv` files as input. The first row is treated as the header and becomes the field names for each record. Quoted fields, embedded commas, and embedded newlines are all handled correctly.
