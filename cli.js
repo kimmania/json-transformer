@@ -69,10 +69,11 @@ SECURITY NOTE
 
 BUILDING MAPPINGS
   Need help creating a mapping? Use mapping-builder.js to inspect your
-  data and auto-generate a mapping:
+  data and generate a mapping interactively or automatically:
 
-    node mapping-builder.js --inspect <file>          # Analyze data structure
-    node mapping-builder.js --data <file> -o map.js   # Auto-generate a mapping
+    node mapping-builder.js --inspect <file>   # Analyze data structure
+    node mapping-builder.js --data <file>       # Interactive wizard
+    node mapping-builder.js --data <file> --auto # Auto-generate
 `);
 }
 
@@ -276,104 +277,6 @@ async function main(rawArgs) {
     if (args.output) {
       fs.writeFileSync(path.resolve(args.output), output + "\n", "utf-8");
       console.error(`Wrote inspection report to ${path.resolve(args.output)}`);
-    } else {
-      process.stdout.write(output + "\n");
-    }
-    return;
-  }
-
-  // ── Convert mode ────────────────────────────────────────────────────────
-  if (args.convert) {
-    const dataPath = path.resolve(args.convert);
-    if (!fs.existsSync(dataPath)) {
-      die(`data file not found: ${dataPath}`);
-    }
-    let data;
-    if (args.convert.endsWith(".csv")) {
-      try {
-        data = parseCsv(fs.readFileSync(dataPath, "utf-8"));
-      } catch (e) {
-        die(`failed to parse CSV file "${args.convert}": ${e.message}`);
-      }
-    } else {
-      try {
-        data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
-      } catch (e) {
-        die(`invalid JSON in data file "${args.convert}": ${e.message}`);
-      }
-      if (!Array.isArray(data)) {
-        die(`data file must contain a JSON array of objects: ${args.convert}`);
-      }
-    }
-
-    const CHUNK_SIZE = 200_000;
-
-    function writeRecords(records, pretty, writeFn) {
-      writeFn("[\n");
-      for (let i = 0; i < records.length; i++) {
-        const comma = i < records.length - 1 ? "," : "";
-        if (pretty) {
-          writeFn("  " + JSON.stringify(records[i], null, 2).replace(/\n/g, "\n  ") + comma + "\n");
-        } else {
-          writeFn(JSON.stringify(records[i]) + comma);
-        }
-      }
-      if (!pretty) writeFn("\n");
-      writeFn("]\n");
-    }
-
-    if (args.output) {
-      const outPath = path.resolve(args.output);
-      const ext = path.extname(outPath);
-      const base = ext ? outPath.slice(0, -ext.length) : outPath;
-      const numChunks = Math.ceil(data.length / CHUNK_SIZE);
-
-      for (let ci = 0; ci < numChunks; ci++) {
-        const chunk = data.slice(ci * CHUNK_SIZE, (ci + 1) * CHUNK_SIZE);
-        const chunkPath = numChunks === 1 ? outPath : `${base}-${ci + 1}${ext}`;
-        const fd = fs.openSync(chunkPath, "w");
-        writeRecords(chunk, args.pretty, (s) => fs.writeSync(fd, s, null, "utf-8"));
-        fs.closeSync(fd);
-        console.error(`wrote ${chunk.length} record(s) to ${chunkPath}`);
-      }
-    } else {
-      writeRecords(data, args.pretty, (s) => process.stdout.write(s));
-    }
-    return;
-  }
-
-  // ── Sample mode ─────────────────────────────────────────────────────────
-  if (args.sample) {
-    const dataPath = path.resolve(args.sample);
-    if (!fs.existsSync(dataPath)) {
-      die(`data file not found: ${dataPath}`);
-    }
-    let data;
-    if (args.sample.endsWith(".csv")) {
-      try {
-        data = parseCsv(fs.readFileSync(dataPath, "utf-8"));
-      } catch (e) {
-        die(`failed to parse CSV file "${args.sample}": ${e.message}`);
-      }
-    } else {
-      try {
-        data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
-      } catch (e) {
-        die(`invalid JSON in data file "${args.sample}": ${e.message}`);
-      }
-      if (!Array.isArray(data)) {
-        die(`data file must contain a JSON array of objects: ${args.sample}`);
-      }
-    }
-
-    const sample = data.slice(0, args.head);
-    const output = args.pretty
-      ? JSON.stringify(sample, null, 2)
-      : JSON.stringify(sample);
-
-    if (args.output) {
-      fs.writeFileSync(path.resolve(args.output), output + "\n", "utf-8");
-      console.error(`wrote ${sample.length} record(s) to ${path.resolve(args.output)}`);
     } else {
       process.stdout.write(output + "\n");
     }
