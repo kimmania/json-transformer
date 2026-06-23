@@ -86,8 +86,26 @@
     return str.length > max ? str.slice(0, max) + "..." : str;
   }
 
-  function downloadFile(content, filename, mimeType) {
+  async function downloadFile(content, filename, mimeType) {
     mimeType = mimeType || "application/json";
+    if (window.showSaveFilePicker) {
+      var ext = filename.split(".").pop();
+      var accept = {};
+      accept[mimeType] = ["." + ext];
+      try {
+        var fh = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: "File", accept: accept }],
+        });
+        var writable = await fh.createWritable();
+        await writable.write(content);
+        await writable.close();
+        return fh.name;
+      } catch (e) {
+        if (e.name === "AbortError") return null;
+        // showSaveFilePicker unsupported in this context — fall through
+      }
+    }
     var blob = new Blob([content], { type: mimeType });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
@@ -97,6 +115,7 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    return filename;
   }
 
   function copyToClipboard(text) {
@@ -4151,7 +4170,7 @@
     }
 
     // Export
-    function exportMapping() {
+    async function exportMapping() {
       var mapping;
       try {
         mapping = resolveActiveMapping(
@@ -4186,8 +4205,8 @@
         filename = "mapping.json";
         mimeType = "application/json";
       }
-      downloadFile(content, filename, mimeType);
-      showToast("Mapping exported as " + filename, "success");
+      var savedAs = await downloadFile(content, filename, mimeType);
+      if (savedAs) showToast("Mapping exported as " + savedAs, "success");
     }
 
     function copyMapping() {
@@ -4217,14 +4236,14 @@
       showToast("Mapping copied to clipboard", "success");
     }
 
-    function exportOutput() {
+    async function exportOutput() {
       if (!previewOutput) {
         showToast("No output to export", "warning");
         return;
       }
       var content = JSON.stringify(previewOutput, null, 2);
-      downloadFile(content, "output.json", "application/json");
-      showToast("Output exported", "success");
+      var savedAs = await downloadFile(content, "output.json", "application/json");
+      if (savedAs) showToast("Output exported as " + savedAs, "success");
     }
 
     // Import mapping (.json / .js from json-transformer CLI)
