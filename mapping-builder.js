@@ -52,10 +52,11 @@ const NUMERIC_STR_RE = /^-?\d+(\.\d+)?$/;
  * Inspect a flat array of record objects.
  * Returns metadata about each top-level (and nested) field.
  */
-export function inspect(data) {
+export function inspect(data, opts = {}) {
   if (!Array.isArray(data) || data.length === 0) {
     return { recordCount: 0, fields: {} };
   }
+  const maxDistinctValues = opts.maxDistinctValues ?? 10;
 
   const fields = {};
 
@@ -136,7 +137,7 @@ export function inspect(data) {
     const info = { ...meta };
     if (distinctMap[field]) {
       info.distinctValues = [...distinctMap[field]];
-      if (info.distinctValues.length > 10) info.distinctValues = info.distinctValues.slice(0, 10);
+      if (info.distinctValues.length > maxDistinctValues) info.distinctValues = info.distinctValues.slice(0, maxDistinctValues);
     }
     if (numValues[field]) {
       info.min = numValues[field].min;
@@ -693,7 +694,7 @@ async function main() {
   // ── Inspect mode ──────────────────────────────────────────────────────
   if (args.inspect) {
     const data = loadDataFile(args.inspect);
-    const report = inspect(data);
+    const report = inspect(data, args.output ? { maxDistinctValues: 50 } : {});
 
     const output = args.output
       ? JSON.stringify(report, null, 2)

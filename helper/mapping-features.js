@@ -370,6 +370,7 @@
     return {
       id: mapping.id,
       version: mapping.version,
+      emptyStringAsNull: mapping.emptyStringAsNull,
       passthrough: mapping.passthrough,
       schema: mapping.schema,
       dictionaries: mapping.dictionaries,
@@ -385,6 +386,7 @@
     if (meta.passthrough !== undefined && meta.passthrough !== null) {
       mapping.passthrough = meta.passthrough;
     }
+    if (meta.emptyStringAsNull) mapping.emptyStringAsNull = true;
     return mapping;
   }
 
@@ -547,6 +549,7 @@
     });
     var mapping = { fields: out };
     if (options.passthrough === true) mapping.passthrough = true;
+    if (options.emptyStringAsNull === true) mapping.emptyStringAsNull = true;
     return applyMappingMeta(mapping, options.meta);
   }
 
@@ -571,6 +574,11 @@
       mapping.passthrough = true;
     } else if (baseMapping && baseMapping.passthrough !== undefined) {
       mapping.passthrough = baseMapping.passthrough;
+    }
+    if (options.emptyStringAsNull === true) {
+      mapping.emptyStringAsNull = true;
+    } else if (baseMapping && baseMapping.emptyStringAsNull) {
+      mapping.emptyStringAsNull = true;
     }
     return applyMappingMeta(mapping, options.meta || extractMappingMeta(baseMapping));
   }

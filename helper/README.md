@@ -37,12 +37,24 @@ node ../cli.js transform -d your-data.json -m your-mapping.js
 | Nested objects | Yes |
 | Compute (expression string) | Yes — templates + custom `return …` |
 | Passthrough | Yes — global toggle |
+| Empty string → null (`emptyStringAsNull`) | Yes — global toggle |
 | Conditions (`if` / `and` / `or`) | View only — edit in JSON/JS |
 | `groupBy`, `flatten`, aggregates, etc. | View only — edit in JSON/JS |
 | Compute as arrow functions | JS mode only |
 
 - **Validation** — missing targets, unknown source paths, empty nested mappings.
 - **Undo / redo** — in visual mode.
+- **Mapping-level toggles** — **Passthrough** (include unmapped source fields) and **Treat empty strings as null** (`emptyStringAsNull`) appear as checkboxes above the field list in Visual mode. Both are preserved when exporting or switching editor modes.
+
+### Loading a field inspection report
+
+When your source file is too large to load directly in the browser, you can generate a field inspection report with the CLI and load that instead:
+
+```bash
+node ../cli.js --inspect your-data.csv -o inspect.json
+```
+
+Then click **🔍 Load Inspection** and select the `inspect.json` file. This populates all field suggestions, the DataInspector summary, and value map helpers without loading any raw records. You can still build and export a complete mapping — the live preview will be blank until source data is also loaded.
 
 ### Source data panel
 

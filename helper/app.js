@@ -86,8 +86,26 @@
     return str.length > max ? str.slice(0, max) + "..." : str;
   }
 
-  function downloadFile(content, filename, mimeType) {
+  async function downloadFile(content, filename, mimeType) {
     mimeType = mimeType || "application/json";
+    if (window.showSaveFilePicker) {
+      var ext = filename.split(".").pop();
+      var accept = {};
+      accept[mimeType] = ["." + ext];
+      try {
+        var fh = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: "File", accept: accept }],
+        });
+        var writable = await fh.createWritable();
+        await writable.write(content);
+        await writable.close();
+        return fh.name;
+      } catch (e) {
+        if (e.name === "AbortError") return null;
+        // showSaveFilePicker unsupported in this context — fall through
+      }
+    }
     var blob = new Blob([content], { type: mimeType });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
@@ -97,6 +115,7 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    return filename;
   }
 
   function copyToClipboard(text) {
@@ -306,24 +325,26 @@
     return MF ? MF.visualFieldsFromMapping(mapping) : [];
   }
 
-  function buildMappingFromVisual(fields, passthrough, meta) {
+  function buildMappingFromVisual(fields, passthrough, meta, emptyStringAsNull) {
     if (!MF) return { fields: {} };
     return MF.buildFullMapping(fields, {
       passthrough: passthrough === true,
+      emptyStringAsNull: emptyStringAsNull === true,
       meta: meta || {},
     });
   }
 
-  function resolveActiveMapping(editorMode, mappingFields, codeEditorValue, passthrough, mappingMeta, codeSnapshot) {
+  function resolveActiveMapping(editorMode, mappingFields, codeEditorValue, passthrough, mappingMeta, codeSnapshot, emptyStringAsNull) {
     if (!MF) return null;
     if (editorMode === "visual") {
       if (codeSnapshot && codeSnapshot.mapping) {
         return MF.mergeVisualFieldsIntoMapping(mappingFields, codeSnapshot.mapping, {
           passthrough: passthrough === true,
+          emptyStringAsNull: emptyStringAsNull === true,
           meta: mappingMeta,
         });
       }
-      return buildMappingFromVisual(mappingFields, passthrough, mappingMeta);
+      return buildMappingFromVisual(mappingFields, passthrough, mappingMeta, emptyStringAsNull);
     }
     if (!codeEditorValue || !String(codeEditorValue).trim()) return null;
     if (editorMode === "json") {
@@ -376,6 +397,7 @@
       mappingFields: useCodeEditor ? [] : visualFields,
       fieldSummary: MF.fieldSummaryFromMapping(mapping),
       passthrough: MF.passthroughToBool(meta.passthrough),
+      emptyStringAsNull: !!meta.emptyStringAsNull,
       toast: useCodeEditor
         ? {
           message: "Imported " + fileName + " (" + fieldCount + " fields, " + advancedCount + " advanced). Edit in " + (isJs ? "JS" : "JSON") + " mode; see field list below.",
@@ -2233,6 +2255,8 @@
     var inspection = props.inspection;
     var passthrough = props.passthrough;
     var onPassthroughChange = props.onPassthroughChange;
+    var emptyStringAsNull = props.emptyStringAsNull;
+    var onEmptyStringAsNullChange = props.onEmptyStringAsNullChange;
     var sourceData = props.sourceData;
     var validationErrors = props.validationErrors || [];
 
@@ -2284,6 +2308,17 @@
             onChange: function (e) { onPassthroughChange(e.target.checked); },
           }),
           " Passthrough (include unmapped source fields)"
+        ),
+        h("label", {
+          className: "mapping-passthrough",
+          "data-tooltip": "Treat empty string values in source data as null",
+        },
+          h("input", {
+            type: "checkbox",
+            checked: !!emptyStringAsNull,
+            onChange: function (e) { onEmptyStringAsNullChange(e.target.checked); },
+          }),
+          " Treat empty strings as null"
         ),
         h("button", { type: "button", className: "btn btn-sm btn-primary", onClick: addField }, "+ Add Field")
       ),
@@ -3890,6 +3925,7 @@
     }), autosavePref = _useState12[0], setAutosavePref = _useState12[1];
     var _useState13 = useState(false), passthrough = _useState13[0], setPassthrough = _useState13[1];
     var _useState13b = useState({}), mappingMeta = _useState13b[0], setMappingMeta = _useState13b[1];
+    var _useState13c = useState(false), emptyStringAsNull = _useState13c[0], setEmptyStringAsNull = _useState13c[1];
     var _useState14 = useState(5), previewLimit = _useState14[0], setPreviewLimit = _useState14[1];
     var _useState15 = useState(null), expectedOutput = _useState15[0], setExpectedOutput = _useState15[1];
     var _useState16 = useState([]), mappingValidationErrors = _useState16[0], setMappingValidationErrors = _useState16[1];
@@ -3983,6 +4019,7 @@
           if (parsed.fields) setMappingFields(parsed.fields);
           if (parsed.passthrough) setPassthrough(MF ? MF.passthroughToBool(parsed.passthrough) : true);
           if (parsed.mappingMeta) setMappingMeta(parsed.mappingMeta);
+          if (parsed.emptyStringAsNull) setEmptyStringAsNull(true);
           if (parsed.code) {
             setCodeEditorValue(parsed.code);
             if (parsed.mode) setEditorMode(parsed.mode);
@@ -4001,6 +4038,7 @@
           mode: editorMode,
           passthrough: passthrough,
           mappingMeta: mappingMeta,
+          emptyStringAsNull: emptyStringAsNull,
         };
         try {
           localStorage.setItem("jt-mapping", JSON.stringify(state));
@@ -4010,7 +4048,7 @@
           showToast("Auto-save unavailable — export your mapping before leaving.", "warning", 8000);
         }
       }
-    }, [mappingFields, codeEditorValue, editorMode, autosavePref, passthrough, mappingMeta]);
+    }, [mappingFields, codeEditorValue, editorMode, autosavePref, passthrough, mappingMeta, emptyStringAsNull]);
 
     useEffect(function () {
       if (editorMode === "visual" && sourceData && MF) {
@@ -4036,7 +4074,8 @@
             codeEditorValue,
             passthrough,
             mappingMeta,
-            codeSnapshotRef.current
+            codeSnapshotRef.current,
+            emptyStringAsNull
           );
 
           if (!mapping || !mapping.fields) {
@@ -4124,8 +4163,34 @@
       reader.readAsText(file);
     }
 
+    // Inspection report loading
+    var inspFileInputRef = useRef(null);
+
+    function handleInspectionLoad(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        try {
+          var data = JSON.parse(ev.target.result);
+          if (!data.fields || typeof data.fields !== "object") {
+            showToast("Not a valid inspection report (missing 'fields')", "error");
+            return;
+          }
+          setInspection(data);
+          showToast("Loaded inspection: " + Object.keys(data.fields).length + " fields", "success");
+        } catch (err) {
+          showToast("Failed to parse inspection file: " + err.message, "error");
+        } finally {
+          e.target.value = "";
+        }
+      };
+      reader.onerror = function () { showToast("Failed to read file", "error"); e.target.value = ""; };
+      reader.readAsText(file);
+    }
+
     // Export
-    function exportMapping() {
+    async function exportMapping() {
       var mapping;
       try {
         mapping = resolveActiveMapping(
@@ -4134,7 +4199,8 @@
           codeEditorValue,
           passthrough,
           mappingMeta,
-          codeSnapshotRef.current
+          codeSnapshotRef.current,
+          emptyStringAsNull
         );
       } catch (e) {
         showToast("Cannot export: invalid mapping (" + e.message + ")", "error");
@@ -4160,8 +4226,8 @@
         filename = "mapping.json";
         mimeType = "application/json";
       }
-      downloadFile(content, filename, mimeType);
-      showToast("Mapping exported as " + filename, "success");
+      var savedAs = await downloadFile(content, filename, mimeType);
+      if (savedAs) showToast("Mapping exported as " + savedAs, "success");
     }
 
     function copyMapping() {
@@ -4173,7 +4239,8 @@
           codeEditorValue,
           passthrough,
           mappingMeta,
-          codeSnapshotRef.current
+          codeSnapshotRef.current,
+          emptyStringAsNull
         );
       } catch (e) {
         showToast("Cannot copy: invalid mapping (" + e.message + ")", "error");
@@ -4191,14 +4258,14 @@
       showToast("Mapping copied to clipboard", "success");
     }
 
-    function exportOutput() {
+    async function exportOutput() {
       if (!previewOutput) {
         showToast("No output to export", "warning");
         return;
       }
       var content = JSON.stringify(previewOutput, null, 2);
-      downloadFile(content, "output.json", "application/json");
-      showToast("Output exported", "success");
+      var savedAs = await downloadFile(content, "output.json", "application/json");
+      if (savedAs) showToast("Output exported as " + savedAs, "success");
     }
 
     // Import mapping (.json / .js from json-transformer CLI)
@@ -4218,6 +4285,7 @@
           };
           setMappingMeta(result.meta);
           setPassthrough(result.passthrough);
+          setEmptyStringAsNull(result.emptyStringAsNull);
           setEditorMode(result.editorMode);
           setCodeEditorValue(result.codeEditorValue);
           setMappingFields(result.mappingFields);
@@ -4474,6 +4542,7 @@
       setPreviewErrors([]);
       setExpectedOutput(null);
       setPassthrough(false);
+      setEmptyStringAsNull(false);
       setMappingMeta({});
       setImportedFieldSummary([]);
       setMappingValidationErrors([]);
@@ -4529,6 +4598,18 @@
             accept: ".json,application/json",
             style: { display: "none" },
             onChange: handleFileLoad,
+          }),
+          h("button", {
+            className: "btn btn-secondary",
+            "data-tooltip": "Load a saved --inspect report to populate field suggestions without loading full data",
+            onClick: function () { return inspFileInputRef.current.click(); },
+          }, "\uD83D\uDD0D Load Inspection"),
+          h("input", {
+            ref: inspFileInputRef,
+            type: "file",
+            accept: ".json,application/json",
+            style: { display: "none" },
+            onChange: handleInspectionLoad,
           }),
           h("button", {
             className: "btn btn-secondary",
@@ -4640,6 +4721,8 @@
                     inspection: inspection,
                     passthrough: passthrough,
                     onPassthroughChange: setPassthrough,
+                    emptyStringAsNull: emptyStringAsNull,
+                    onEmptyStringAsNullChange: setEmptyStringAsNull,
                     sourceData: sourceData,
                     validationErrors: mappingValidationErrors,
                   })

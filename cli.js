@@ -268,7 +268,7 @@ async function main(rawArgs) {
       }
     }
 
-    const report = inspect(data);
+    const report = inspect(data, args.output ? { maxDistinctValues: 50 } : {});
     const output = args.output
       ? JSON.stringify(report, null, 2)
       : formatInspectReport(report);
@@ -306,12 +306,38 @@ async function main(rawArgs) {
       }
     }
 
-    const output = args.pretty ? JSON.stringify(data, null, 2) : JSON.stringify(data);
+    const CHUNK_SIZE = 200_000;
+
+    function writeRecords(records, pretty, writeFn) {
+      writeFn("[\n");
+      for (let i = 0; i < records.length; i++) {
+        const comma = i < records.length - 1 ? "," : "";
+        if (pretty) {
+          writeFn("  " + JSON.stringify(records[i], null, 2).replace(/\n/g, "\n  ") + comma + "\n");
+        } else {
+          writeFn(JSON.stringify(records[i]) + comma);
+        }
+      }
+      if (!pretty) writeFn("\n");
+      writeFn("]\n");
+    }
+
     if (args.output) {
-      fs.writeFileSync(path.resolve(args.output), output + "\n", "utf-8");
-      console.error(`wrote ${data.length} record(s) to ${path.resolve(args.output)}`);
+      const outPath = path.resolve(args.output);
+      const ext = path.extname(outPath);
+      const base = ext ? outPath.slice(0, -ext.length) : outPath;
+      const numChunks = Math.ceil(data.length / CHUNK_SIZE);
+
+      for (let ci = 0; ci < numChunks; ci++) {
+        const chunk = data.slice(ci * CHUNK_SIZE, (ci + 1) * CHUNK_SIZE);
+        const chunkPath = numChunks === 1 ? outPath : `${base}-${ci + 1}${ext}`;
+        const fd = fs.openSync(chunkPath, "w");
+        writeRecords(chunk, args.pretty, (s) => fs.writeSync(fd, s, null, "utf-8"));
+        fs.closeSync(fd);
+        console.error(`wrote ${chunk.length} record(s) to ${chunkPath}`);
+      }
     } else {
-      process.stdout.write(output + "\n");
+      writeRecords(data, args.pretty, (s) => process.stdout.write(s));
     }
     return;
   }

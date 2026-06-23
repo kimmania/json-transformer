@@ -318,6 +318,17 @@ function evaluateCondition(sourceRow, condition) {
 
 // ── Core transform ───────────────────────────────────────────────────
 
+function normalizeEmptyStrings(val) {
+  if (val === "") return null;
+  if (Array.isArray(val)) return val.map(normalizeEmptyStrings);
+  if (val !== null && typeof val === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(val)) out[k] = normalizeEmptyStrings(v);
+    return out;
+  }
+  return val;
+}
+
 function transformField(sourceRow, fieldDef, dictionaries = {}) {
   // 0. Nested sub-mapping (recursive)
   if ("fields" in fieldDef && typeof fieldDef.fields === "object") {
@@ -571,6 +582,7 @@ function transformAggregate(sourceRow, fieldDef, dictionaries) {
  */
 export function transformOne(sourceRow, mapping, dictionaries = {}) {
   const dicts = mapping.dictionaries || dictionaries;
+  if (mapping.emptyStringAsNull) sourceRow = normalizeEmptyStrings(sourceRow);
   const result = {};
 
   // Passthrough: copy source fields as a baseline before applying field definitions
